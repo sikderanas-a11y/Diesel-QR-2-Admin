@@ -1,0 +1,2602 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Forklift Diesel Tracker — Admin</title>
+<script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+<style>
+  :root{
+    --green:#3457C9; --green-dark:#7A1E8C; --green-light:#EEF1FB;
+    --red:#c0392b; --yellow:#8a6600; --bg:#f5f6fa; --text:#1c1c1c;
+    --muted:#6b7280; --border:#dcdfef;
+  }
+  *{box-sizing:border-box;}
+  body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;background:var(--bg);color:var(--text);margin:0;}
+  .shell{display:flex;min-height:100vh;}
+  .hidden{display:none !important;}
+
+  /* ---- Nav ---- */
+  nav{
+    width:220px;background:linear-gradient(180deg, #3457C9 0%, #7A1E8C 100%);color:#fff;flex-shrink:0;
+    display:flex;flex-direction:column;padding:20px 0;
+  }
+  nav h1{font-size:16px;padding:0 20px 20px;border-bottom:1px solid rgba(255,255,255,.15);margin-bottom:10px;display:flex;align-items:center;gap:10px;}
+  nav h1 img{width:32px;height:32px;object-fit:contain;border-radius:6px;background:#fff;padding:2px;flex-shrink:0;}
+  nav .navitem{
+    padding:14px 20px;cursor:pointer;font-size:14px;font-weight:600;color:rgba(255,255,255,.75);
+    border-left:3px solid transparent;
+  }
+  nav .navitem.active{background:rgba(255,255,255,.08);color:#fff;border-left-color:#fff;}
+  nav .navitem:hover{color:#fff;}
+
+  main{flex:1;padding:28px 32px;max-width:100%;}
+  .page{display:none;}
+  .page.active{display:block;}
+  h2.page-title{font-size:22px;color:var(--green-dark);margin-bottom:4px;}
+  p.page-sub{color:var(--muted);font-size:13px;margin-bottom:22px;}
+
+  .card{background:#fff;border:1px solid var(--border);border-radius:12px;padding:22px;margin-bottom:18px;box-shadow:0 1px 3px rgba(0,0,0,.04);}
+  .grid-3{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:14px;}
+  .stat{background:var(--green-light);border-radius:10px;padding:16px;}
+  .filter-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:12px;}
+  .filter-row .field{margin-bottom:0;}
+  th.sortable{cursor:pointer;user-select:none;white-space:nowrap;}
+  th.sortable .arrow{font-size:10px;opacity:.6;margin-left:3px;}
+  .pagination{display:flex;align-items:center;justify-content:space-between;margin-top:12px;font-size:13px;flex-wrap:wrap;gap:8px;}
+  .pagination .pg-btns button{padding:6px 12px;font-size:13px;}
+  .view-toggle{display:flex;border:1.5px solid var(--green);border-radius:8px;overflow:hidden;width:fit-content;margin-bottom:12px;}
+  .view-toggle button{padding:8px 16px;border:none;background:#fff;color:var(--green);font-weight:700;font-size:13px;cursor:pointer;}
+  .view-toggle button.active{background:var(--green);color:#fff;}
+  .chart-wrap{overflow-x:auto;border:1px solid var(--border);border-radius:10px;padding:20px 10px 6px;background:#fafafa;}
+  .chart-bars{
+    display:flex;align-items:flex-end;gap:6px;min-width:100%;height:220px;position:relative;
+    background-image:repeating-linear-gradient(to top, var(--border) 0, var(--border) 1px, transparent 1px, transparent 20%);
+  }
+  .chart-bar-col{flex:1;min-width:26px;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%;cursor:pointer;position:relative;}
+  .chart-bar{width:100%;background:var(--green);border-radius:3px 3px 0 0;transition:background .15s;}
+  .chart-bar:hover,.chart-bar.selected{background:var(--green-dark);}
+  .chart-bar-value{font-size:10px;font-weight:800;color:var(--green-dark);margin-bottom:3px;white-space:nowrap;}
+  .chart-bar-label{font-size:9px;color:var(--muted);margin-top:6px;white-space:nowrap;transform:rotate(-40deg);transform-origin:top right;}
+  .chart-bar-label.horizontal{transform:none;margin-top:6px;}
+  .chart-tooltip{background:var(--green-light);border:1px solid var(--green);border-radius:8px;padding:10px 14px;margin-top:10px;font-size:13px;display:none;}
+  .summary-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:12px;margin-top:14px;}
+  .summary-item{background:#fafafa;border:1px solid var(--border);border-radius:10px;padding:12px;text-align:center;}
+  .summary-item .snum{font-size:17px;font-weight:800;color:var(--green-dark);}
+  .summary-item .slbl{font-size:11px;color:var(--muted);margin-top:2px;}
+  .stat .num{font-size:26px;font-weight:800;color:var(--green-dark);}
+  .stat .lbl{font-size:12px;color:var(--muted);margin-top:2px;}
+
+  .field{margin-bottom:16px;}
+  .field label{display:block;font-size:13px;font-weight:600;color:var(--muted);margin-bottom:6px;}
+  .field input, .field select{
+    width:100%;padding:11px 12px;border:1.5px solid var(--border);border-radius:8px;
+    font-size:14px;background:#fafafa;
+  }
+  .field input:focus, .field select:focus{outline:none;border-color:var(--green);background:#fff;}
+  .row2{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+
+  button.btn{
+    background:var(--green);color:#fff;border:none;padding:11px 20px;border-radius:8px;
+    font-weight:700;font-size:14px;cursor:pointer;margin-right:8px;
+  }
+  button.btn.outline{background:#fff;border:1.5px solid var(--green);color:var(--green);}
+  button.btn:disabled{opacity:.5;cursor:not-allowed;}
+  button.btn.small{padding:7px 12px;font-size:12px;}
+
+  .msg{padding:10px 14px;border-radius:8px;font-size:13px;font-weight:600;margin-bottom:14px;}
+  .msg.success{background:#e6f7ec;color:var(--green-dark);}
+  .msg.error{background:#fdeceb;color:var(--red);}
+  .msg.info{background:#eef4fb;color:#1c5a99;}
+
+  table{width:100%;border-collapse:collapse;font-size:13px;margin-top:10px;}
+  th,td{border:1px solid var(--border);padding:8px 10px;text-align:left;}
+  th{background:var(--green-light);color:var(--green-dark);}
+
+  .checklist{display:flex;flex-wrap:wrap;gap:8px;max-height:220px;overflow:auto;border:1px solid var(--border);border-radius:8px;padding:10px;background:#fafafa;}
+  .checklist label{display:flex;align-items:center;gap:6px;font-size:13px;background:#fff;border:1px solid var(--border);padding:6px 10px;border-radius:6px;cursor:pointer;}
+
+  .spinner{display:inline-block;width:14px;height:14px;border:2px solid #fff;border-top-color:transparent;border-radius:50%;animation:spin .7s linear infinite;vertical-align:middle;margin-right:6px;}
+  @keyframes spin{to{transform:rotate(360deg);}}
+
+  /* ---- A4 print cards ----
+     Cutting box: exactly 120mm x 120mm (visible border = cut line).
+     QR code: exactly 110mm x 110mm, centered inside the box (5mm margin
+     on every side). Vehicle name is overlaid centered on top of the QR
+     code itself, on a white background so the printed code stays
+     scannable. Two 120mm boxes stack vertically per page (2 x 120mm =
+     240mm, fits inside the 297mm page height); two 120mm-wide boxes
+     cannot sit side by side on a 210mm-wide page. */
+  #qrPrintArea{display:none;}
+  .a4-page{
+    width:210mm;height:297mm;background:#fff;margin:0 auto 0;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    gap:10mm;padding:0;box-sizing:border-box;overflow:hidden;
+  }
+  .qr-print-card{
+    width:120mm;height:120mm;box-sizing:border-box;
+    border:1.5pt solid #000; /* cutting guide line */
+    padding:5mm; /* creates the 5mm margin around the 110mm QR code */
+    display:flex;align-items:center;justify-content:center;
+  }
+  .qr-print-card.empty{border:none;visibility:hidden;}
+  .qr-wrap{position:relative;width:110mm;height:110mm;}
+  .qr-wrap img{width:110mm;height:110mm;display:block;}
+  .qr-name-overlay{
+    position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+    background:rgba(255,255,255,.88);
+    padding:2mm 4mm;border-radius:1mm;
+    font-size:12pt;font-weight:700;color:#000;
+    text-align:center;max-width:92mm;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  }
+
+  @media print{
+    nav, main > *:not(#qrPrintArea):not(#reportPrintArea), .no-print{display:none !important;}
+    #qrPrintArea, #reportPrintArea{display:block !important;}
+    body{background:#fff;}
+    main{padding:0;max-width:none;}
+    @page{size:A4;margin:0;}
+    .a4-page{margin:0;box-shadow:none;page-break-after:always;page-break-inside:avoid;}
+    .a4-page:last-child{page-break-after:auto;}
+  }
+</style>
+</head>
+<body>
+
+<!-- ================= ADMIN LOGIN ================= -->
+<div id="adminLoginScreen" style="max-width:380px;margin:60px auto;padding:0 20px;">
+  <div style="text-align:center;margin-bottom:24px;">
+    <div style="width:60px;height:60px;background:var(--green-light);border-radius:16px;display:flex;align-items:center;justify-content:center;margin:0 auto 12px;font-size:30px;overflow:hidden;">
+      <img src="logo.png" alt="Logo" style="width:100%;height:100%;object-fit:contain;padding:6px;" onerror="this.outerHTML='🔐';">
+    </div>
+    <h2 style="color:var(--green-dark);font-size:20px;">Admin Login</h2>
+    <p style="color:var(--muted);font-size:13px;margin-top:4px;">Diesel Tracker Admin Dashboard</p>
+  </div>
+  <div class="card">
+    <div id="adminLoginMsg"></div>
+    <div class="field">
+      <label>Username</label>
+      <input type="text" id="adminLoginUsername" placeholder="Username" autocomplete="username">
+    </div>
+    <div class="field">
+      <label>Password</label>
+      <input type="password" id="adminLoginPassword" placeholder="Password" autocomplete="current-password">
+    </div>
+    <button class="btn" style="width:100%;" id="adminLoginBtn" onclick="handleAdminLogin()">Log In</button>
+  </div>
+</div>
+
+<div class="shell hidden" id="adminShell">
+  <nav>
+    <h1><img src="logo.png" alt="Logo" onerror="this.style.display='none'"> Diesel Tracker Admin</h1>
+    <div class="navitem active" data-page="dashboard" onclick="switchPage('dashboard')">Dashboard</div>
+    <div class="navitem" data-page="create" onclick="switchPage('create')">Create &amp; Generate QR Codes</div>
+    <div class="navitem" data-page="report" onclick="switchPage('report')">Download Report</div>
+    <div class="navitem" data-page="drivers" onclick="switchPage('drivers')">Driver Information</div>
+    <div class="navitem" data-page="rates" onclick="switchPage('rates')">Consumption Rate</div>
+    <div class="navitem" data-page="dispenser" onclick="switchPage('dispenser')">Dispenser Meter Reading</div>
+    <div class="navitem" data-page="operators" onclick="switchPage('operators')">Operator Information</div>
+    <div class="navitem" onclick="handleAdminLogout()" style="margin-top:auto;color:#ffd6d6;">Logout</div>
+  </nav>
+
+  <main>
+
+    <!-- ================= DASHBOARD ================= -->
+    <div class="page active" id="page-dashboard">
+      <h2 class="page-title">Dashboard</h2>
+      <p class="page-sub">Overview of vehicles and diesel consumption.</p>
+      <div class="grid-3">
+        <div class="stat"><div class="num" id="statVehicles">–</div><div class="lbl">Total Vehicles</div></div>
+        <div class="stat"><div class="num" id="statEntries">–</div><div class="lbl">Total Diesel Entries</div></div>
+        <div class="stat"><div class="num" id="statToday">–</div><div class="lbl">Entries Today</div></div>
+        <div class="stat"><div class="num" id="statDrivers">–</div><div class="lbl">Total Drivers</div></div>
+        <div class="stat"><div class="num" id="statTotalConsumption">–</div><div class="lbl">Total Consumption (L)</div></div>
+        <div class="stat"><div class="num" id="statVehiclesWithEntries">–</div><div class="lbl">Vehicles with Diesel Entries</div></div>
+      </div>
+
+      <!-- ============ VEHICLE CONSUMPTION ANALYSIS ============ -->
+      <div class="card">
+        <strong style="display:block;margin-bottom:12px;color:var(--green-dark);">Vehicle Consumption Analysis</strong>
+
+        <div class="field" style="max-width:360px;">
+          <label>Vehicle</label>
+          <select id="analysisVehicleSelect" onchange="applyAnalysis()"><option value="">-- Select a vehicle --</option></select>
+        </div>
+
+        <div class="view-toggle">
+          <button id="viewDateBtn" class="active" onclick="setAnalysisView('date')">Date</button>
+          <button id="viewMonthBtn" onclick="setAnalysisView('month')">Month</button>
+          <button id="viewYearBtn" onclick="setAnalysisView('year')">Year</button>
+        </div>
+
+        <div class="filter-row" style="max-width:500px;">
+          <div class="field"><label>Start Date</label><input type="date" id="analysisFrom"></div>
+          <div class="field"><label>End Date</label><input type="date" id="analysisTo"></div>
+        </div>
+        <button class="btn" style="width:auto;padding:11px 24px;" onclick="applyAnalysis()">Apply</button>
+
+        <div id="analysisMsg" style="margin-top:12px;"></div>
+
+        <div id="analysisChartArea" class="hidden" style="margin-top:16px;">
+          <div class="section-title" style="margin-top:0;">Consumption (LTR) vs Time</div>
+          <div class="chart-wrap">
+            <div class="chart-bars" id="chartBars"></div>
+          </div>
+          <div class="chart-tooltip" id="chartTooltip"></div>
+
+          <div class="section-title">Consumption Summary</div>
+          <div class="summary-grid" id="analysisSummary"></div>
+        </div>
+      </div>
+
+      <!-- ============ COMPREHENSIVE DIESEL DATA ============ -->
+      <div class="card">
+        <strong style="display:block;margin-bottom:12px;color:var(--green-dark);">Comprehensive Diesel Data</strong>
+        <p class="page-sub" style="margin-bottom:12px;">Showing the latest 10 records by default — use search, filters, or pagination to see more.</p>
+
+        <div class="filter-row">
+          <div class="field"><label>Vehicle Name / Code</label><input type="text" id="ddFilterVehicle" placeholder="e.g. Forklift-01 or DF01" oninput="onDieselFilterInput()"></div>
+          <div class="field"><label>Operator</label><input type="text" id="ddFilterOperator" placeholder="Operator name" oninput="onDieselFilterInput()"></div>
+          <div class="field"><label>Driver</label><input type="text" id="ddFilterDriver" placeholder="Driver name" oninput="onDieselFilterInput()"></div>
+          <div class="field"><label>From Date</label><input type="date" id="ddFilterFrom" onchange="loadDieselDataTable(1)"></div>
+          <div class="field"><label>To Date</label><input type="date" id="ddFilterTo" onchange="loadDieselDataTable(1)"></div>
+        </div>
+        <button class="btn outline small" onclick="clearDieselFilters()">Clear Filters</button>
+
+        <div id="dieselTableMsg" style="margin-top:10px;"></div>
+        <div style="overflow-x:auto;">
+        <table id="dieselDataTable">
+          <thead><tr>
+            <th class="sortable" onclick="sortDieselData('entry_datetime')">Date/Time <span class="arrow" id="arrow_entry_datetime"></span></th>
+            <th class="sortable" onclick="sortDieselData('code')">Code <span class="arrow" id="arrow_code"></span></th>
+            <th class="sortable" onclick="sortDieselData('vehicle_name')">Vehicle <span class="arrow" id="arrow_vehicle_name"></span></th>
+            <th class="sortable" onclick="sortDieselData('quantity')">Qty (L) <span class="arrow" id="arrow_quantity"></span></th>
+            <th>Meter</th>
+            <th>Operator</th>
+            <th>Op. Mobile</th>
+            <th>Driver</th>
+            <th>Driver ID/Mobile</th>
+            <th>Created At</th>
+            <th>Action</th>
+          </tr></thead>
+          <tbody><tr><td colspan="11" style="color:var(--muted);">Loading...</td></tr></tbody>
+        </table>
+        </div>
+        <div class="pagination">
+          <span id="dieselPageInfo">-</span>
+          <div class="pg-btns">
+            <button class="btn small outline" id="dieselPrevBtn" onclick="changeDieselPage(-1)">‹ Prev</button>
+            <button class="btn small outline" id="dieselNextBtn" onclick="changeDieselPage(1)">Next ›</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ============ EDIT DIESEL ENTRY ============ -->
+      <div class="card hidden" id="dieselEditCard" style="max-width:520px;">
+        <strong style="display:block;margin-bottom:14px;color:var(--green-dark);">Edit Diesel Entry</strong>
+        <div id="dieselEditMsg"></div>
+        <input type="hidden" id="dieselEditId">
+        <div class="info-row"><div class="label">Vehicle</div><div class="value" id="dieselEditVehicleLabel">-</div></div>
+        <div class="field">
+          <label>Date &amp; Time</label>
+          <input type="datetime-local" id="dieselEditDatetime">
+        </div>
+        <div class="row2">
+          <div class="field"><label>Quantity (LTR)</label><input type="number" id="dieselEditQuantity" step="0.01" min="0"></div>
+          <div class="field"><label>Meter Reading</label><input type="number" id="dieselEditMeter" step="0.01" min="0"></div>
+        </div>
+        <div class="row2">
+          <div class="field"><label>Operator Name</label><input type="text" id="dieselEditOperatorName"></div>
+          <div class="field"><label>Operator Mobile</label><input type="text" id="dieselEditOperatorMobile"></div>
+        </div>
+        <div class="row2">
+          <div class="field"><label>Driver Name</label><input type="text" id="dieselEditDriverName"></div>
+          <div class="field"><label>Driver ID/Mobile</label><input type="text" id="dieselEditDriverIdMobile"></div>
+        </div>
+        <button class="btn" id="dieselEditSaveBtn" onclick="saveDieselEdit()">Save Changes</button>
+        <button class="btn outline" onclick="cancelDieselEdit()">Cancel</button>
+      </div>
+    </div>
+
+    <!-- ================= CREATE NEW QR CODE ================= -->
+    <div class="page" id="page-create">
+      <h2 class="page-title">Create &amp; Generate QR Codes</h2>
+      <p class="page-sub">Register a new vehicle and immediately generate its QR code, or produce a printable A4 sheet for existing vehicles.</p>
+      <div class="card" style="max-width:480px;">
+        <strong style="display:block;margin-bottom:14px;color:var(--green-dark);">Add a Vehicle</strong>
+        <div id="createMsg"></div>
+        <div class="field">
+          <label>Vehicle Code (unique)</label>
+          <input type="text" id="newCode" placeholder="e.g. DF05" style="text-transform:uppercase;">
+        </div>
+        <div class="field">
+          <label>Vehicle Name</label>
+          <input type="text" id="newName" placeholder="e.g. Forklift-05">
+        </div>
+        <button class="btn" id="createBtn" onclick="createVehicle()">Create &amp; Generate QR Code</button>
+      </div>
+
+      <div class="card" id="newQrPreview" style="display:none;max-width:280px;text-align:center;">
+        <strong style="display:block;margin-bottom:10px;color:var(--green-dark);">New QR Code Ready</strong>
+        <img id="newQrImg" style="width:180px;height:180px;">
+        <div style="font-weight:700;margin-top:10px;" id="newQrCode"></div>
+        <div style="color:var(--muted);font-size:13px;" id="newQrName"></div>
+      </div>
+
+      <!-- ============ BULK IMPORT VIA CSV ============ -->
+      <div class="card">
+        <strong style="display:block;margin-bottom:6px;color:var(--green-dark);">Bulk Import via CSV</strong>
+        <p class="page-sub" style="margin-bottom:14px;">Create many vehicles and QR codes at once from a CSV file.</p>
+
+        <div style="margin-bottom:14px;">
+          <button class="btn outline small" onclick="downloadCsvTemplate()">Download CSV Template</button>
+          <button class="btn small" onclick="document.getElementById('csvFileInput').click()">Import CSV</button>
+          <input type="file" id="csvFileInput" accept=".csv,text/csv" style="display:none;" onchange="handleCsvFile(event)">
+        </div>
+
+        <details style="margin-bottom:14px;">
+          <summary style="cursor:pointer;font-size:13px;font-weight:600;color:var(--green-dark);">CSV Format / Example &amp; Code Rules</summary>
+          <div style="font-size:12px;color:var(--muted);margin-top:10px;line-height:1.6;">
+            The file must have exactly these two columns, in this order, with this exact header:
+            <pre style="background:#111;color:#0f0;padding:10px 12px;border-radius:6px;overflow:auto;font-size:11px;margin:8px 0;">vehicle_name,code
+Dump Truck-6986,XDT6986R
+Dump Truck-1618,XDT1618O
+Electric Forklift-01,XEF0001O
+Excavator-1,XEX0001O
+Forklift-01,XFL0001O
+Forklift-01 (Sanitary),SFL0001O
+Forklift-02,XFL0002O</pre>
+            <strong>8-character code structure:</strong>
+            <table style="margin-top:6px;">
+              <thead><tr><th>Position</th><th>Meaning</th><th>Valid values</th></tr></thead>
+              <tbody>
+                <tr><td>1st</td><td>Location</td><td>X = Monica/Monalisa, S = Sanitary</td></tr>
+                <tr><td>2nd–3rd</td><td>Vehicle Type</td><td>Any 2 characters (e.g. PL, FL, DT, EF, EX)</td></tr>
+                <tr><td>4th–7th</td><td>Vehicle Number</td><td>Exactly 4 digits (use last 4 digits if longer)</td></tr>
+                <tr><td>8th</td><td>Ownership</td><td>O = Own, R = Rental</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </details>
+
+        <div id="csvImportMsg"></div>
+      </div>
+
+      <!-- ============ CSV IMPORT PREVIEW ============ -->
+      <div class="card" id="csvPreviewCard" style="display:none;">
+        <strong style="display:block;margin-bottom:10px;color:var(--green-dark);">Import Preview</strong>
+        <div id="csvPreviewSummary" style="margin-bottom:10px;"></div>
+        <table id="csvPreviewTable">
+          <thead><tr><th>Row</th><th>Vehicle Name</th><th>Code</th><th>Status</th></tr></thead>
+          <tbody></tbody>
+        </table>
+        <div style="margin-top:16px;">
+          <button class="btn" id="csvConfirmBtn" onclick="confirmCsvImport()">Confirm &amp; Create QR Codes</button>
+          <button class="btn outline" onclick="cancelCsvImport()">Cancel</button>
+        </div>
+        <div id="csvImportProgress" style="margin-top:12px;"></div>
+      </div>
+
+      <!-- ============ GENERATE / PRINT QR CODES ============ -->
+      <div class="card">
+        <strong style="display:block;margin-bottom:6px;color:var(--green-dark);">Generate QR Codes</strong>
+        <p class="page-sub" style="margin-bottom:14px;">Select a vehicle, or ALL, to produce a printable A4 sheet (2 codes per page).</p>
+        <div id="generateMsg"></div>
+        <div class="field">
+          <label>Select Vehicle</label>
+          <select id="generateSelect" onchange="onGenerateSelectChange()">
+            <option value="">Loading vehicles...</option>
+          </select>
+        </div>
+        <div class="field" id="multiSelectWrap" style="display:none;">
+          <label style="display:flex;align-items:center;justify-content:space-between;gap:10px;">
+            <span>Vehicles (ALL selected by default — untick to exclude)</span>
+            <span>
+              <button type="button" class="btn small outline" style="width:auto;padding:4px 10px;margin-top:0;" onclick="setAllVehicleChecks(true)">Select All</button>
+              <button type="button" class="btn small outline" style="width:auto;padding:4px 10px;margin-top:0;" onclick="setAllVehicleChecks(false)">Deselect All</button>
+            </span>
+          </label>
+          <div class="checklist" id="vehicleChecklist"></div>
+        </div>
+        <label style="font-size:13px;display:flex;align-items:center;gap:6px;margin-bottom:14px;">
+          <input type="checkbox" id="forceRegen"> Force regenerate QR even if one already exists
+        </label>
+        <button class="btn" id="genBtn" onclick="generateSelected()">Generate QR Code(s)</button>
+        <button class="btn outline" id="printBtn" style="display:none;" onclick="window.print()">Print / Save as PDF</button>
+      </div>
+    </div>
+
+    <!-- ================= DOWNLOAD REPORT ================= -->
+    <div class="page" id="page-report">
+      <h2 class="page-title">Download Report</h2>
+      <p class="page-sub">Filter diesel entries by date range and vehicle.</p>
+      <div class="card">
+        <div class="row2">
+          <div class="field"><label>From Date</label><input type="date" id="reportFrom"></div>
+          <div class="field"><label>To Date</label><input type="date" id="reportTo"></div>
+        </div>
+        <div class="field">
+          <label>Vehicle</label>
+          <select id="reportVehicle"><option value="">Loading vehicles...</option></select>
+        </div>
+        <button class="btn" id="reportBtn" onclick="runReport()">Generate Report</button>
+        <button class="btn outline" id="reportPrintBtn" style="display:none;" onclick="window.print()">Print / Save as PDF</button>
+        <button class="btn outline" id="reportCsvBtn" style="display:none;" onclick="downloadCsv()">Download CSV</button>
+        <div id="reportMsg" style="margin-top:14px;"></div>
+        <table id="reportTable" style="display:none;">
+          <thead><tr><th>Date/Time</th><th>Code</th><th>Vehicle</th><th>Qty (L)</th><th>Meter</th><th>Operator</th><th>Op. Mobile</th><th>Driver</th><th>Driver ID/Mobile</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ================= DRIVER INFORMATION ================= -->
+    <div class="page" id="page-drivers">
+      <h2 class="page-title">Driver Information</h2>
+      <p class="page-sub">Add, search, edit, and remove drivers. Historical diesel records keep their own saved driver snapshot even after a driver is edited or deleted here.</p>
+
+      <div class="card" style="max-width:480px;">
+        <strong style="display:block;margin-bottom:14px;color:var(--green-dark);" id="driverFormTitle">Add New Driver</strong>
+        <div id="driverFormMsg"></div>
+        <input type="hidden" id="driverEditId" value="">
+        <div class="field">
+          <label>Driver Name</label>
+          <input type="text" id="driverFormName" placeholder="e.g. Abdul Karim">
+        </div>
+        <div class="field">
+          <label>Driver ID</label>
+          <input type="text" id="driverFormId" placeholder="e.g. DR-1025">
+        </div>
+        <div class="field">
+          <label>Driver Mobile Number</label>
+          <input type="text" id="driverFormMobile" placeholder="e.g. 017XXXXXXXX">
+        </div>
+        <button class="btn" id="driverSaveBtn" onclick="saveDriver()">Save Driver</button>
+        <button class="btn outline" id="driverCancelEditBtn" style="display:none;" onclick="resetDriverForm()">Cancel Edit</button>
+      </div>
+
+      <!-- ============ BULK IMPORT DRIVERS VIA CSV ============ -->
+      <div class="card">
+        <strong style="display:block;margin-bottom:6px;color:var(--green-dark);">Bulk Import via CSV</strong>
+        <p class="page-sub" style="margin-bottom:14px;">Add many drivers at once from a CSV file.</p>
+
+        <div style="margin-bottom:14px;">
+          <button class="btn outline small" onclick="downloadDriverCsvTemplate()">Download CSV Template</button>
+          <button class="btn small" onclick="document.getElementById('driverCsvFileInput').click()">Import CSV</button>
+          <input type="file" id="driverCsvFileInput" accept=".csv,text/csv" style="display:none;" onchange="handleDriverCsvFile(event)">
+        </div>
+
+        <details style="margin-bottom:14px;">
+          <summary style="cursor:pointer;font-size:13px;font-weight:600;color:var(--green-dark);">CSV Format / Example</summary>
+          <div style="font-size:12px;color:var(--muted);margin-top:10px;line-height:1.6;">
+            The file must have exactly these three columns, in this order, with this exact header:
+            <pre style="background:#111;color:#0f0;padding:10px 12px;border-radius:6px;overflow:auto;font-size:11px;margin:8px 0;">driver_name,driver_id,driver_mobile_number
+Abdul Karim,DR-1025,017XXXXXXXX
+Rahim Uddin,DR-1026,018XXXXXXXX
+Kamal Hossain,DR-1027,019XXXXXXXX</pre>
+            No specific ID/mobile format is enforced — any value is accepted as long as it's not empty and not already used by another driver.
+          </div>
+        </details>
+
+        <div id="driverCsvImportMsg"></div>
+      </div>
+
+      <!-- ============ DRIVER CSV IMPORT PREVIEW ============ -->
+      <div class="card" id="driverCsvPreviewCard" style="display:none;">
+        <strong style="display:block;margin-bottom:10px;color:var(--green-dark);">Import Preview</strong>
+        <div id="driverCsvPreviewSummary" style="margin-bottom:10px;"></div>
+        <table id="driverCsvPreviewTable">
+          <thead><tr><th>Row</th><th>Driver Name</th><th>Driver ID</th><th>Mobile Number</th><th>Status</th></tr></thead>
+          <tbody></tbody>
+        </table>
+        <div style="margin-top:16px;">
+          <button class="btn" id="driverCsvConfirmBtn" onclick="confirmDriverCsvImport()">Confirm &amp; Create Drivers</button>
+          <button class="btn outline" onclick="cancelDriverCsvImport()">Cancel</button>
+        </div>
+        <div id="driverCsvImportProgress" style="margin-top:12px;"></div>
+      </div>
+
+      <div class="card">
+        <div class="field" style="max-width:360px;margin-bottom:10px;">
+          <label>Search by Driver Name / Driver ID / Mobile Number</label>
+          <input type="text" id="driverSearchInput" placeholder="Start typing to search..." oninput="onDriverSearchInput()">
+        </div>
+        <div id="driverListMsg" style="margin-bottom:8px;"></div>
+        <table id="driverTable">
+          <thead><tr><th>Driver Name</th><th>Driver ID</th><th>Mobile Number</th><th>Action</th></tr></thead>
+          <tbody><tr><td colspan="4" style="color:var(--muted);">Loading...</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ================= CONSUMPTION RATE ================= -->
+    <div class="page" id="page-rates">
+      <h2 class="page-title">Consumption Rate</h2>
+      <p class="page-sub">Set the average daily diesel consumption rate shown on each vehicle's "Last Consumption" card.</p>
+
+      <div class="card" style="max-width:480px;">
+        <strong style="display:block;margin-bottom:14px;color:var(--green-dark);" id="rateFormTitle">Set Consumption Rate</strong>
+        <div id="rateFormMsg"></div>
+        <div class="field">
+          <label>Vehicle</label>
+          <select id="rateFormVehicle"><option value="">Loading vehicles...</option></select>
+        </div>
+        <div class="field">
+          <label>Consumption Rate (Litres / Day)</label>
+          <input type="number" id="rateFormValue" placeholder="e.g. 12.5" inputmode="decimal" step="0.01" min="0">
+        </div>
+        <button class="btn" id="rateSaveBtn" onclick="saveRate()">Save Rate</button>
+        <button class="btn outline" id="rateCancelEditBtn" style="display:none;" onclick="resetRateForm()">Cancel Edit</button>
+      </div>
+
+      <!-- ============ BULK IMPORT RATES VIA CSV ============ -->
+      <div class="card">
+        <strong style="display:block;margin-bottom:6px;color:var(--green-dark);">Bulk Import via CSV</strong>
+        <p class="page-sub" style="margin-bottom:14px;">Set rates for many vehicles at once from a CSV file.</p>
+
+        <div style="margin-bottom:14px;">
+          <button class="btn outline small" onclick="downloadRateCsvTemplate()">Download CSV Template</button>
+          <button class="btn small" onclick="document.getElementById('rateCsvFileInput').click()">Import CSV</button>
+          <input type="file" id="rateCsvFileInput" accept=".csv,text/csv" style="display:none;" onchange="handleRateCsvFile(event)">
+        </div>
+
+        <details style="margin-bottom:14px;">
+          <summary style="cursor:pointer;font-size:13px;font-weight:600;color:var(--green-dark);">CSV Format / Example</summary>
+          <div style="font-size:12px;color:var(--muted);margin-top:10px;line-height:1.6;">
+            The file must have exactly these two columns, in this order, with this exact header:
+            <pre style="background:#111;color:#0f0;padding:10px 12px;border-radius:6px;overflow:auto;font-size:11px;margin:8px 0;">code,consumption_rate_per_day
+DF01,12.5
+DF02,10</pre>
+            The <strong>code</strong> must already exist in the vehicle list (created via "Create New QR Code"). Rows with an unknown code, a missing rate, or a non-numeric rate are marked invalid and skipped.
+          </div>
+        </details>
+
+        <div id="rateCsvImportMsg"></div>
+      </div>
+
+      <!-- ============ RATE CSV IMPORT PREVIEW ============ -->
+      <div class="card" id="rateCsvPreviewCard" style="display:none;">
+        <strong style="display:block;margin-bottom:10px;color:var(--green-dark);">Import Preview</strong>
+        <div id="rateCsvPreviewSummary" style="margin-bottom:10px;"></div>
+        <table id="rateCsvPreviewTable">
+          <thead><tr><th>Row</th><th>Code</th><th>Vehicle</th><th>Rate (L/day)</th><th>Status</th></tr></thead>
+          <tbody></tbody>
+        </table>
+        <div style="margin-top:16px;">
+          <button class="btn" id="rateCsvConfirmBtn" onclick="confirmRateCsvImport()">Confirm &amp; Save Rates</button>
+          <button class="btn outline" onclick="cancelRateCsvImport()">Cancel</button>
+        </div>
+        <div id="rateCsvImportProgress" style="margin-top:12px;"></div>
+      </div>
+
+      <div class="card">
+        <div class="field" style="max-width:360px;margin-bottom:10px;">
+          <label>Search by Vehicle Code / Name</label>
+          <input type="text" id="rateSearchInput" placeholder="Start typing to search..." oninput="onRateSearchInput()">
+        </div>
+        <div id="rateListMsg" style="margin-bottom:8px;"></div>
+        <table id="rateTable">
+          <thead><tr><th>Code</th><th>Vehicle</th><th>Rate (L/day)</th><th>Action</th></tr></thead>
+          <tbody><tr><td colspan="4" style="color:var(--muted);">Loading...</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ================= DISPENSER METER READING ================= -->
+    <div class="page" id="page-dispenser">
+      <h2 class="page-title">Dispenser Meter Reading</h2>
+      <p class="page-sub">Correct/synchronize the recorded dispenser reading with the actual physical meter. Every diesel transaction continues to update this table via the existing dispenser-meter logic — this only lets you set the record straight for a given date.</p>
+
+      <div class="card" style="max-width:480px;">
+        <button class="btn" id="dispenserToggleFormBtn" onclick="toggleDispenserForm()">+ Set Correct Meter Reading</button>
+        <div id="dispenserForm" class="hidden" style="margin-top:16px;">
+          <div id="dispenserFormMsg"></div>
+          <div class="field">
+            <label>Date</label>
+            <input type="date" id="dispenserFormDate">
+          </div>
+          <div class="field">
+            <label>Current/Correct Meter Reading (LTR)</label>
+            <input type="number" id="dispenserFormReading" placeholder="e.g. 160668.43" step="0.01">
+          </div>
+          <button class="btn" id="dispenserSaveBtn" onclick="saveDispenserReading()">Save Reading</button>
+          <button class="btn outline" onclick="toggleDispenserForm(false)">Cancel</button>
+          <p style="font-size:11px;color:var(--muted);margin-top:8px;">If a record already exists for this date, it will be updated with this corrected value. Records for every other date are left untouched.</p>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="filter-row" style="max-width:500px;">
+          <div class="field"><label>From Date</label><input type="date" id="dmrFilterFrom" onchange="loadDispenserTable(1)"></div>
+          <div class="field"><label>To Date</label><input type="date" id="dmrFilterTo" onchange="loadDispenserTable(1)"></div>
+        </div>
+        <button class="btn outline small" onclick="clearDispenserFilters()">Clear Filters</button>
+
+        <div id="dispenserTableMsg" style="margin-top:10px;"></div>
+        <div style="overflow-x:auto;">
+        <table id="dispenserTable">
+          <thead><tr>
+            <th class="sortable" onclick="sortDispenserData('date')">Date <span class="arrow" id="darrow_date">▼</span></th>
+            <th class="sortable" onclick="sortDispenserData('last_meter_reading')">Last Meter Reading (LTR) <span class="arrow" id="darrow_last_meter_reading"></span></th>
+            <th class="sortable" onclick="sortDispenserData('updated_at')">Updated At <span class="arrow" id="darrow_updated_at"></span></th>
+            <th>Action</th>
+          </tr></thead>
+          <tbody><tr><td colspan="4" style="color:var(--muted);">Loading...</td></tr></tbody>
+        </table>
+        </div>
+        <div class="pagination">
+          <span id="dispenserPageInfo">-</span>
+          <div class="pg-btns">
+            <button class="btn small outline" id="dispenserPrevBtn" onclick="changeDispenserPage(-1)">‹ Prev</button>
+            <button class="btn small outline" id="dispenserNextBtn" onclick="changeDispenserPage(1)">Next ›</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ================= OPERATOR INFORMATION ================= -->
+    <div class="page" id="page-operators">
+      <h2 class="page-title">Operator Information</h2>
+      <p class="page-sub">Manage operator login accounts (used by the Diesel Tracker's operator login). Uses the existing <code>operator_login</code> table — no separate table is created.</p>
+
+      <div class="card" style="max-width:480px;">
+        <strong style="display:block;margin-bottom:14px;color:var(--green-dark);" id="operatorFormTitle">Add New Operator</strong>
+        <div id="operatorFormMsg"></div>
+        <input type="hidden" id="operatorEditId" value="">
+        <div class="field">
+          <label>Name</label>
+          <input type="text" id="operatorFormName" placeholder="e.g. Anas">
+        </div>
+        <div class="field">
+          <label>Mobile Number</label>
+          <input type="text" id="operatorFormMobile" placeholder="e.g. 017XXXXXXXX">
+        </div>
+        <div class="field">
+          <label>Password</label>
+          <input type="text" id="operatorFormPass" placeholder="Operator login password">
+        </div>
+        <div class="field">
+          <label>XIC_ID</label>
+          <input type="number" id="operatorFormXicId" placeholder="e.g. 1025" inputmode="numeric" step="1">
+        </div>
+        <button class="btn" id="operatorSaveBtn" onclick="saveOperator()">Save Operator</button>
+        <button class="btn outline" id="operatorCancelEditBtn" style="display:none;" onclick="resetOperatorForm()">Cancel Edit</button>
+      </div>
+
+      <div class="card">
+        <div class="field" style="max-width:360px;margin-bottom:10px;">
+          <label>Search by Name / Mobile / XIC_ID</label>
+          <input type="text" id="operatorSearchInput" placeholder="Start typing to search..." oninput="onOperatorSearchInput()">
+        </div>
+        <div id="operatorListMsg" style="margin-bottom:8px;"></div>
+        <table id="operatorTable">
+          <thead><tr><th>Name</th><th>Mobile</th><th>XIC_ID</th><th>Password</th><th>Created</th><th>Action</th></tr></thead>
+          <tbody><tr><td colspan="6" style="color:var(--muted);">Loading...</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<!-- Hidden print-only areas -->
+<div id="qrPrintArea"></div>
+<div id="reportPrintArea"></div>
+
+<script>
+/* ============ SUPABASE CONFIGURATION ============ */
+const SUPABASE_URL = "https://oshqaazzteqqukilghev.supabase.co";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9zaHFhYXp6dGVxcXVraWxnaGV2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODU3Mzc4ODYsImV4cCI6MjEwMTMxMzg4Nn0.Rz33PdqBlq9yWqgNiz_4B_2fG6B3ztpk3dTx44He4F0";
+const BUCKET_NAME = "vehicle-qr-codes";
+
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+let vehicleCache = []; // [{code, vehicle_name, qr_file_link}]
+let lastReportRows = [];
+
+/* ============ NAV ============ */
+function switchPage(name) {
+  document.querySelectorAll(".page").forEach(p => p.classList.remove("active"));
+  document.querySelectorAll(".navitem").forEach(n => n.classList.remove("active"));
+  document.getElementById("page-" + name).classList.add("active");
+  document.querySelector('.navitem[data-page="' + name + '"]').classList.add("active");
+  if (name === "dashboard") loadDashboard();
+  if (name === "create") loadVehiclesInto("generate");
+  if (name === "report") loadVehiclesInto("report");
+  if (name === "drivers") loadDrivers();
+  if (name === "rates") loadRates();
+  if (name === "dispenser") loadDispenserTable(1);
+  if (name === "operators") loadOperators();
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+  const today = new Date().toISOString().slice(0, 10);
+  document.getElementById("reportFrom").value = today;
+  document.getElementById("reportTo").value = today;
+
+  const session = getAdminSession();
+  if (session) {
+    enterAdminDashboard();
+  } else {
+    document.getElementById("adminLoginScreen").classList.remove("hidden");
+    document.getElementById("adminShell").classList.add("hidden");
+  }
+
+  document.getElementById("adminLoginPassword").addEventListener("keydown", (e) => {
+    if (e.key === "Enter") handleAdminLogin();
+  });
+});
+
+/* ============ ADMIN LOGIN (admin_login table + localStorage session) ============ */
+function getAdminSession() {
+  const raw = localStorage.getItem("adminSession");
+  return raw ? JSON.parse(raw) : null;
+}
+function setAdminSession(username) {
+  localStorage.setItem("adminSession", JSON.stringify({ username, loggedIn: true }));
+}
+function clearAdminSession() {
+  localStorage.removeItem("adminSession");
+}
+
+function enterAdminDashboard() {
+  document.getElementById("adminLoginScreen").classList.add("hidden");
+  document.getElementById("adminShell").classList.remove("hidden");
+  loadDashboard();
+  loadVehicleCache();
+}
+
+async function handleAdminLogin() {
+  const username = document.getElementById("adminLoginUsername").value.trim();
+  const password = document.getElementById("adminLoginPassword").value;
+  document.getElementById("adminLoginMsg").innerHTML = "";
+
+  if (!username) { showMsg("adminLoginMsg", "error", "Please enter your username."); return; }
+  if (!password) { showMsg("adminLoginMsg", "error", "Please enter your password."); return; }
+
+  const btn = document.getElementById("adminLoginBtn");
+  btn.disabled = true;
+  btn.textContent = "Logging in...";
+
+  try {
+    const { data, error } = await sb.from("admin_login")
+      .select("username, password")
+      .eq("username", username)
+      .maybeSingle();
+    if (error) throw error;
+
+    if (!data || data.password !== password) {
+      showMsg("adminLoginMsg", "error", "Invalid username or password.");
+      btn.disabled = false;
+      btn.textContent = "Log In";
+      return;
+    }
+
+    setAdminSession(data.username);
+    document.getElementById("adminLoginPassword").value = "";
+    btn.disabled = false;
+    btn.textContent = "Log In";
+    enterAdminDashboard();
+  } catch (err) {
+    console.error(err);
+    showMsg("adminLoginMsg", "error", "Network error. Please try again.");
+    btn.disabled = false;
+    btn.textContent = "Log In";
+  }
+}
+
+function handleAdminLogout() {
+  clearAdminSession();
+  document.getElementById("adminShell").classList.add("hidden");
+  document.getElementById("adminLoginScreen").classList.remove("hidden");
+  document.getElementById("adminLoginUsername").value = "";
+  document.getElementById("adminLoginPassword").value = "";
+}
+
+
+function showMsg(elId, type, text) {
+  document.getElementById(elId).innerHTML = '<div class="msg ' + type + '">' + escapeHtml(text) + '</div>';
+}
+function escapeHtml(str) {
+  const div = document.createElement("div");
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+function naturalSortByName(list) {
+  // Ascending order that treats embedded numbers numerically, so
+  // "Forklift-2" sorts before "Forklift-10" (not after, as plain
+  // string sort would put it).
+  const collator = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" });
+  return list.slice().sort((a, b) => collator.compare(a.vehicle_name || "", b.vehicle_name || ""));
+}
+
+/* ============ SHARED: LOAD VEHICLES (single query, cached) ============ */
+async function loadVehicleCache() {
+  const { data, error } = await sb.from("master").select("code, vehicle_name, qr_file_link").order("code");
+  if (error) { console.error(error); return; }
+  vehicleCache = data || [];
+  loadVehiclesInto("generate");
+  loadVehiclesInto("report");
+}
+
+function loadVehiclesInto(context) {
+  if (context === "generate") {
+    const sel = document.getElementById("generateSelect");
+    const sorted = naturalSortByName(vehicleCache);
+    sel.innerHTML = '<option value="">-- Select a vehicle --</option><option value="__ALL__">ALL VEHICLES</option>' +
+      sorted.map(v => '<option value="' + v.code + '">' + escapeHtml(v.vehicle_name) + '</option>').join("");
+
+    const checklist = document.getElementById("vehicleChecklist");
+    checklist.innerHTML = sorted.map(v =>
+      '<label><input type="checkbox" class="veh-chk" value="' + v.code + '" checked> ' + v.code + '</label>'
+    ).join("");
+  }
+  if (context === "report") {
+    const sel = document.getElementById("reportVehicle");
+    sel.innerHTML = '<option value="__ALL__">ALL VEHICLES</option>' +
+      naturalSortByName(vehicleCache).map(v => '<option value="' + v.code + '">' + escapeHtml(v.vehicle_name) + '</option>').join("");
+  }
+}
+
+function setAllVehicleChecks(checked) {
+  document.querySelectorAll(".veh-chk").forEach(cb => { cb.checked = checked; });
+}
+
+function onGenerateSelectChange() {
+  const val = document.getElementById("generateSelect").value;
+  document.getElementById("multiSelectWrap").style.display = (val === "__ALL__") ? "block" : "none";
+}
+
+/* ============ DASHBOARD ============ */
+let dieselPage = 1;
+const DIESEL_PAGE_SIZE = 10;
+let dieselSortCol = "entry_datetime";
+let dieselSortAsc = false;
+let dieselFilterTimer = null;
+let currentDieselRows = [];
+
+async function loadDashboard() {
+  try {
+    const { data: summary, error } = await sb.rpc("get_diesel_dashboard_summary");
+    if (error) throw error;
+    document.getElementById("statVehicles").textContent = summary.total_vehicles ?? 0;
+    document.getElementById("statEntries").textContent = summary.total_entries ?? 0;
+    document.getElementById("statTotalConsumption").textContent = Number(summary.total_consumption ?? 0).toLocaleString();
+    document.getElementById("statVehiclesWithEntries").textContent = summary.vehicles_with_entries ?? 0;
+  } catch (err) {
+    console.error(err);
+  }
+
+  const { count: dCount } = await sb.from("driver_information").select("*", { count: "exact", head: true });
+  document.getElementById("statDrivers").textContent = dCount ?? 0;
+
+  const startOfToday = new Date(); startOfToday.setHours(0,0,0,0);
+  const { count: tCount } = await sb.from("diesel_data")
+    .select("*", { count: "exact", head: true })
+    .gte("entry_datetime", startOfToday.toISOString());
+  document.getElementById("statToday").textContent = tCount ?? 0;
+
+  if (!vehicleCache || vehicleCache.length === 0) await loadVehicleCache();
+  populateAnalysisVehicleSelect();
+
+  // Auto-load the first vehicle's consumption analysis so the graph
+  // is never empty on open (unless there truly are no vehicles yet).
+  const sel = document.getElementById("analysisVehicleSelect");
+  if (!sel.value && vehicleCache && vehicleCache.length > 0) {
+    sel.value = vehicleCache[0].code;
+    applyAnalysis();
+  } else if (!vehicleCache || vehicleCache.length === 0) {
+    showMsg("analysisMsg", "info", "No vehicles found yet — add one under \"Create & Generate QR Codes\" first.");
+  }
+
+  dieselPage = 1;
+  loadDieselDataTable(1);
+}
+
+/* ============ COMPREHENSIVE DIESEL DATA TABLE ============ */
+function onDieselFilterInput() {
+  clearTimeout(dieselFilterTimer);
+  dieselFilterTimer = setTimeout(() => loadDieselDataTable(1), 350); // debounce
+}
+
+function clearDieselFilters() {
+  document.getElementById("ddFilterVehicle").value = "";
+  document.getElementById("ddFilterOperator").value = "";
+  document.getElementById("ddFilterDriver").value = "";
+  document.getElementById("ddFilterFrom").value = "";
+  document.getElementById("ddFilterTo").value = "";
+  loadDieselDataTable(1);
+}
+
+function sortDieselData(col) {
+  if (dieselSortCol === col) dieselSortAsc = !dieselSortAsc;
+  else { dieselSortCol = col; dieselSortAsc = false; }
+  ["entry_datetime","code","vehicle_name","quantity"].forEach(c => {
+    document.getElementById("arrow_" + c).textContent = (c === dieselSortCol) ? (dieselSortAsc ? "▲" : "▼") : "";
+  });
+  loadDieselDataTable(1);
+}
+
+function changeDieselPage(delta) {
+  loadDieselDataTable(dieselPage + delta);
+}
+
+async function loadDieselDataTable(page) {
+  dieselPage = Math.max(1, page);
+  const tbody = document.querySelector("#dieselDataTable tbody");
+  document.getElementById("dieselTableMsg").innerHTML = "";
+  tbody.innerHTML = '<tr><td colspan="11" style="color:var(--muted);">Loading...</td></tr>';
+
+  const vehicleTerm = document.getElementById("ddFilterVehicle").value.trim();
+  const operatorTerm = document.getElementById("ddFilterOperator").value.trim();
+  const driverTerm = document.getElementById("ddFilterDriver").value.trim();
+  const fromDate = document.getElementById("ddFilterFrom").value;
+  const toDate = document.getElementById("ddFilterTo").value;
+
+  try {
+    let query = sb.from("diesel_data")
+      .select("id, code, vehicle_name, entry_datetime, quantity, meter_reading, operator_name, operator_mobile, driver_name, driver_id_mobile, created_at", { count: "exact" });
+
+    if (vehicleTerm) query = query.or("vehicle_name.ilike.%" + vehicleTerm + "%,code.ilike.%" + vehicleTerm + "%");
+    if (operatorTerm) query = query.ilike("operator_name", "%" + operatorTerm + "%");
+    if (driverTerm) query = query.ilike("driver_name", "%" + driverTerm + "%");
+    if (fromDate) query = query.gte("entry_datetime", new Date(fromDate + "T00:00:00").toISOString());
+    if (toDate) query = query.lte("entry_datetime", new Date(toDate + "T23:59:59").toISOString());
+
+    query = query.order(dieselSortCol, { ascending: dieselSortAsc });
+
+    const from = (dieselPage - 1) * DIESEL_PAGE_SIZE;
+    const to = from + DIESEL_PAGE_SIZE - 1;
+    query = query.range(from, to);
+
+    const { data, error, count } = await query;
+    if (error) throw error;
+
+    if (!data || data.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="11" style="color:var(--muted);">No matching diesel entries.</td></tr>';
+    } else {
+      currentDieselRows = data;
+      tbody.innerHTML = data.map(r =>
+        '<tr>' +
+        '<td>' + new Date(r.entry_datetime).toLocaleString() + '</td>' +
+        '<td>' + escapeHtml(r.code) + '</td>' +
+        '<td>' + escapeHtml(r.vehicle_name) + '</td>' +
+        '<td>' + r.quantity + '</td>' +
+        '<td>' + r.meter_reading + '</td>' +
+        '<td>' + escapeHtml(r.operator_name) + '</td>' +
+        '<td>' + escapeHtml(r.operator_mobile || "-") + '</td>' +
+        '<td>' + escapeHtml(r.driver_name || "-") + '</td>' +
+        '<td>' + escapeHtml(r.driver_id_mobile || "-") + '</td>' +
+        '<td>' + (r.created_at ? new Date(r.created_at).toLocaleString() : "-") + '</td>' +
+        '<td>' +
+        '<button class="btn small outline" style="margin-right:6px;" onclick="editDieselRow(\'' + r.id + '\')">Edit</button>' +
+        '<button class="btn small" style="background:var(--red);" onclick="deleteDieselRow(\'' + r.id + '\')">Delete</button>' +
+        '</td>' +
+        '</tr>'
+      ).join("");
+    }
+
+    const totalPages = Math.max(1, Math.ceil((count || 0) / DIESEL_PAGE_SIZE));
+    document.getElementById("dieselPageInfo").textContent =
+      (count || 0) + " record(s) — page " + dieselPage + " of " + totalPages;
+    document.getElementById("dieselPrevBtn").disabled = dieselPage <= 1;
+    document.getElementById("dieselNextBtn").disabled = dieselPage >= totalPages;
+  } catch (err) {
+    console.error(err);
+    tbody.innerHTML = "";
+    showMsg("dieselTableMsg", "error", "Error loading diesel data.");
+  }
+}
+
+/* ============ EDIT / DELETE DIESEL ENTRY ============ */
+function dtToLocalInputValue(dt) {
+  // Converts a Date to the "YYYY-MM-DDTHH:mm" format <input type="datetime-local"> needs.
+  const pad = n => String(n).padStart(2, "0");
+  return dt.getFullYear() + "-" + pad(dt.getMonth() + 1) + "-" + pad(dt.getDate()) +
+    "T" + pad(dt.getHours()) + ":" + pad(dt.getMinutes());
+}
+
+function editDieselRow(id) {
+  const r = currentDieselRows.find(row => String(row.id) === String(id));
+  if (!r) return;
+
+  document.getElementById("dieselEditId").value = r.id;
+  document.getElementById("dieselEditVehicleLabel").textContent = r.vehicle_name + " (" + r.code + ")";
+  document.getElementById("dieselEditDatetime").value = dtToLocalInputValue(new Date(r.entry_datetime));
+  document.getElementById("dieselEditQuantity").value = r.quantity;
+  document.getElementById("dieselEditMeter").value = r.meter_reading;
+  document.getElementById("dieselEditOperatorName").value = r.operator_name || "";
+  document.getElementById("dieselEditOperatorMobile").value = r.operator_mobile || "";
+  document.getElementById("dieselEditDriverName").value = r.driver_name || "";
+  document.getElementById("dieselEditDriverIdMobile").value = r.driver_id_mobile || "";
+  document.getElementById("dieselEditMsg").innerHTML = "";
+
+  document.getElementById("dieselEditCard").classList.remove("hidden");
+  document.getElementById("dieselEditCard").scrollIntoView({ behavior: "smooth", block: "center" });
+}
+
+function cancelDieselEdit() {
+  document.getElementById("dieselEditCard").classList.add("hidden");
+}
+
+async function saveDieselEdit() {
+  const msgBox = "dieselEditMsg";
+  document.getElementById(msgBox).innerHTML = "";
+
+  const id = document.getElementById("dieselEditId").value;
+  const dtVal = document.getElementById("dieselEditDatetime").value;
+  const quantity = parseFloat(document.getElementById("dieselEditQuantity").value);
+  const meter = parseFloat(document.getElementById("dieselEditMeter").value);
+  const opName = document.getElementById("dieselEditOperatorName").value.trim();
+  const opMobile = document.getElementById("dieselEditOperatorMobile").value.trim();
+  const drvName = document.getElementById("dieselEditDriverName").value.trim();
+  const drvIdMobile = document.getElementById("dieselEditDriverIdMobile").value.trim();
+
+  if (!dtVal) { showMsg(msgBox, "error", "Date & time is required."); return; }
+  if (isNaN(quantity) || quantity <= 0) { showMsg(msgBox, "error", "Please enter a valid quantity."); return; }
+  if (isNaN(meter) || meter < 0) { showMsg(msgBox, "error", "Please enter a valid meter reading."); return; }
+  if (!opName) { showMsg(msgBox, "error", "Operator name is required."); return; }
+
+  const row = currentDieselRows.find(r => String(r.id) === String(id));
+  const btn = document.getElementById("dieselEditSaveBtn");
+  btn.disabled = true;
+  btn.textContent = "Saving...";
+
+  try {
+    const { error } = await sb.from("diesel_data")
+      .update({
+        entry_datetime: new Date(dtVal).toISOString(),
+        quantity: quantity,
+        meter_reading: meter,
+        operator_name: opName,
+        operator_mobile: opMobile || null,
+        driver_name: drvName || null,
+        driver_id_mobile: drvIdMobile || null
+      })
+      .eq("id", id);
+    if (error) throw error;
+
+    if (row) await syncLatestDataForCode(row.code);
+
+    document.getElementById("dieselEditCard").classList.add("hidden");
+    showMsg("dieselTableMsg", "success", "Diesel entry updated successfully.");
+    loadDieselDataTable(dieselPage);
+  } catch (err) {
+    console.error(err);
+    showMsg(msgBox, "error", "Error: " + (err.message || "could not save changes."));
+  }
+  btn.disabled = false;
+  btn.textContent = "Save Changes";
+}
+
+async function deleteDieselRow(id) {
+  const row = currentDieselRows.find(r => String(r.id) === String(id));
+  const label = row ? (row.vehicle_name + " — " + new Date(row.entry_datetime).toLocaleString() + " — " + row.quantity + " L") : id;
+  const ok = confirm("Are you sure you want to delete this diesel entry?\n\n" + label + "\n\nThis cannot be undone.");
+  if (!ok) return;
+
+  try {
+    const { error } = await sb.from("diesel_data").delete().eq("id", id);
+    if (error) throw error;
+
+    if (row) await syncLatestDataForCode(row.code);
+
+    showMsg("dieselTableMsg", "success", "Diesel entry deleted.");
+    loadDieselDataTable(dieselPage);
+  } catch (err) {
+    console.error(err);
+    alert("Error deleting entry: " + (err.message || ""));
+  }
+}
+
+async function syncLatestDataForCode(code) {
+  // The insert trigger keeps latest_data in sync automatically, but it
+  // only fires on INSERT — editing or deleting a historical row needs
+  // this explicit re-sync so latest_data (and the QR scanner) still
+  // reflects whatever the vehicle's newest remaining entry actually is.
+  try {
+    const { data: newest } = await sb.from("diesel_data")
+      .select("entry_datetime, quantity, meter_reading, vehicle_name, operator_name, operator_mobile, driver_name, driver_id_mobile")
+      .eq("code", code)
+      .order("entry_datetime", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (newest) {
+      await sb.from("latest_data").update({
+        entry_datetime: newest.entry_datetime,
+        quantity: newest.quantity,
+        meter_reading: newest.meter_reading,
+        vehicle_name: newest.vehicle_name,
+        operator_name: newest.operator_name,
+        operator_mobile: newest.operator_mobile,
+        driver_name: newest.driver_name,
+        driver_id_mobile: newest.driver_id_mobile
+      }).eq("code", code);
+    } else {
+      // No diesel_data rows left at all for this vehicle — clear the
+      // diesel-related fields but leave status/location untouched.
+      await sb.from("latest_data").update({
+        entry_datetime: null, quantity: null, meter_reading: null,
+        operator_name: null, operator_mobile: null, driver_name: null, driver_id_mobile: null
+      }).eq("code", code);
+    }
+  } catch (err) {
+    console.error("latest_data re-sync failed", err);
+  }
+}
+
+/* ============ VEHICLE CONSUMPTION ANALYSIS ============ */
+let analysisView = "date";
+
+function populateAnalysisVehicleSelect() {
+  const sel = document.getElementById("analysisVehicleSelect");
+  const current = sel.value;
+  sel.innerHTML = '<option value="">-- Select a vehicle --</option>' +
+    naturalSortByName(vehicleCache || []).map(v => '<option value="' + v.code + '">' + escapeHtml(v.vehicle_name) + '</option>').join("");
+  if (current) sel.value = current;
+}
+
+function setAnalysisView(view) {
+  analysisView = view;
+  document.getElementById("viewDateBtn").classList.toggle("active", view === "date");
+  document.getElementById("viewMonthBtn").classList.toggle("active", view === "month");
+  document.getElementById("viewYearBtn").classList.toggle("active", view === "year");
+}
+
+async function applyAnalysis() {
+  const code = document.getElementById("analysisVehicleSelect").value;
+  const from = document.getElementById("analysisFrom").value;
+  const to = document.getElementById("analysisTo").value;
+  const msgBox = "analysisMsg";
+  document.getElementById(msgBox).innerHTML = "";
+  document.getElementById("analysisChartArea").classList.add("hidden");
+
+  if (!code) { showMsg(msgBox, "error", "Please select a vehicle."); return; }
+
+  showMsg(msgBox, "info", "Loading consumption data...");
+
+  try {
+    // Only the two columns needed, filtered by code (not name) + date
+    // range — never the whole diesel_data table.
+    let query = sb.from("diesel_data").select("entry_datetime, quantity").eq("code", code);
+    if (from) query = query.gte("entry_datetime", new Date(from + "T00:00:00").toISOString());
+    if (to) query = query.lte("entry_datetime", new Date(to + "T23:59:59").toISOString());
+    query = query.order("entry_datetime");
+
+    const { data: rows, error } = await query;
+    if (error) throw error;
+
+    document.getElementById(msgBox).innerHTML = "";
+
+    if (!rows || rows.length === 0) {
+      showMsg(msgBox, "info", "No diesel entries found for this vehicle in the selected range.");
+      return;
+    }
+
+    renderAnalysis(rows, code);
+  } catch (err) {
+    console.error(err);
+    showMsg(msgBox, "error", "Error loading consumption data.");
+  }
+}
+
+function groupKey(dt, view) {
+  const d = new Date(dt);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  if (view === "year") return String(y);
+  if (view === "month") return y + "-" + m;
+  return y + "-" + m + "-" + day;
+}
+
+function groupLabel(key, view) {
+  if (view === "year") return key;
+  if (view === "month") {
+    const [y, m] = key.split("-");
+    return new Date(y, m - 1, 1).toLocaleDateString(undefined, { month: "short", year: "numeric" });
+  }
+  return new Date(key + "T00:00:00").toLocaleDateString(undefined, { day: "2-digit", month: "short", year: "numeric" });
+}
+
+function renderAnalysis(rows, code) {
+  const vehicle = (vehicleCache || []).find(v => v.code === code);
+  const vehicleName = vehicle ? vehicle.vehicle_name : code;
+
+  // Group raw rows by the selected period, summing quantity per group
+  // and counting entries per group (per rule: sum quantities when
+  // multiple entries land in the same period).
+  const groups = {};
+  rows.forEach(r => {
+    const key = groupKey(r.entry_datetime, analysisView);
+    if (!groups[key]) groups[key] = { total: 0, count: 0 };
+    groups[key].total += Number(r.quantity);
+    groups[key].count += 1;
+  });
+
+  const keys = Object.keys(groups).sort();
+  const totals = keys.map(k => groups[k].total);
+  const grandTotal = rows.reduce((s, r) => s + Number(r.quantity), 0);
+  const highest = Math.max(...totals);
+  const lowest = Math.min(...totals);
+  const avgPerPeriod = grandTotal / keys.length;
+  const periodLabel = analysisView === "date" ? "L/day" : analysisView === "month" ? "L/month" : "L/year";
+
+  document.getElementById("analysisSummary").innerHTML = [
+    ["Vehicle", vehicleName],
+    ["Total Consumption", grandTotal.toFixed(2) + " L"],
+    ["Average Consumption", avgPerPeriod.toFixed(2) + " " + periodLabel],
+    ["Highest Consumption", highest.toFixed(2) + " L"],
+    ["Lowest Consumption", lowest.toFixed(2) + " L"],
+    ["Number of Entries", rows.length]
+  ].map(p => '<div class="summary-item"><div class="snum">' + escapeHtml(p[1]) + '</div><div class="slbl">' + escapeHtml(p[0]) + '</div></div>').join("");
+
+  const maxVal = Math.max(...totals, 1);
+  const bars = document.getElementById("chartBars");
+  const labelClass = analysisView === "date" ? "chart-bar-label" : "chart-bar-label horizontal";
+  bars.innerHTML = keys.map(k => {
+    const g = groups[k];
+    const heightPct = Math.max((g.total / maxVal) * 100, 2);
+    return '<div class="chart-bar-col" onclick="showChartTooltip(\'' + k + '\', ' + g.total + ', ' + g.count + ')">' +
+      '<div class="chart-bar-value">' + g.total.toFixed(1) + '</div>' +
+      '<div class="chart-bar" style="height:' + heightPct + '%;"></div>' +
+      '<div class="' + labelClass + '">' + escapeHtml(groupLabel(k, analysisView)) + '</div>' +
+      '</div>';
+  }).join("");
+
+  document.getElementById("chartTooltip").style.display = "none";
+  document.getElementById("analysisChartArea").classList.remove("hidden");
+
+  // Auto-show the most recent period's detail so the tooltip isn't
+  // empty on first render.
+  const lastKey = keys[keys.length - 1];
+  showChartTooltip(lastKey, groups[lastKey].total, groups[lastKey].count);
+}
+
+function showChartTooltip(key, total, count) {
+  document.querySelectorAll(".chart-bar").forEach(b => b.classList.remove("selected"));
+  const tip = document.getElementById("chartTooltip");
+  tip.style.display = "block";
+  tip.innerHTML =
+    '<strong>' + escapeHtml(groupLabel(key, analysisView)) + '</strong><br>' +
+    'Consumption: ' + Number(total).toFixed(2) + ' L<br>' +
+    'Entries: ' + count;
+}
+
+/* ============ CREATE NEW QR CODE ============ */
+async function createVehicle() {
+  const code = document.getElementById("newCode").value.trim().toUpperCase();
+  const name = document.getElementById("newName").value.trim();
+  document.getElementById("createMsg").innerHTML = "";
+  document.getElementById("newQrPreview").style.display = "none";
+
+  if (!code) { showMsg("createMsg", "error", "Vehicle code is required."); return; }
+  if (!name) { showMsg("createMsg", "error", "Vehicle name is required."); return; }
+
+  const btn = document.getElementById("createBtn");
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span>Creating...';
+
+  try {
+    // Duplicate check
+    const { data: existing } = await sb.from("master").select("code").eq("code", code).maybeSingle();
+    if (existing) {
+      showMsg("createMsg", "error", "A vehicle with code \"" + code + "\" already exists.");
+      btn.disabled = false; btn.textContent = "Create & Generate QR Code";
+      return;
+    }
+
+    const { error: insertErr } = await sb.from("master").insert({ code, vehicle_name: name });
+    if (insertErr) throw insertErr;
+
+    // Generate + upload QR immediately
+    const { svg, publicUrl } = await generateAndUploadQr(code, name);
+    await sb.from("master").update({ qr_file_link: publicUrl }).eq("code", code);
+
+    showMsg("createMsg", "success", "Vehicle \"" + code + "\" created and QR code generated successfully.");
+    document.getElementById("newQrImg").src = publicUrl;
+    document.getElementById("newQrCode").textContent = code;
+    document.getElementById("newQrName").textContent = name;
+    document.getElementById("newQrPreview").style.display = "block";
+
+    document.getElementById("newCode").value = "";
+    document.getElementById("newName").value = "";
+
+    await loadVehicleCache(); // refresh dropdowns everywhere
+  } catch (err) {
+    console.error(err);
+    showMsg("createMsg", "error", "Error: " + (err.message || "could not create vehicle."));
+  }
+  btn.disabled = false;
+  btn.textContent = "Create & Generate QR Code";
+}
+
+/* ============ CSV BULK IMPORT ============ */
+const CSV_LOCATIONS = { X: "Monica/Monalisa", S: "Sanitary" };
+const CSV_TYPES = ["PL", "FL", "DT", "EF", "EX"];
+const CSV_OWNERSHIP = { O: "Own", R: "Rental" };
+
+let csvParsedRows = []; // rows after validation, ready for preview / import
+
+function downloadCsvTemplate() {
+  const csv = "vehicle_name,code\nForklift-01,XFL0001O\nForklift-02,XFL0002O\n";
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const link = document.createElement("a");
+  link.href = URL.createObjectURL(blob);
+  link.download = "vehicle_qr_template.csv";
+  link.click();
+}
+
+function parseCsvText(text) {
+  // Basic CSV line parser (handles simple quoted fields with commas inside).
+  const lines = text.split(/\r\n|\n|\r/).map(l => l.trim()).filter(l => l.length > 0);
+  const rows = lines.map(line => {
+    const cells = [];
+    let cur = "", inQuotes = false;
+    for (let i = 0; i < line.length; i++) {
+      const ch = line[i];
+      if (ch === '"') { inQuotes = !inQuotes; continue; }
+      if (ch === "," && !inQuotes) { cells.push(cur); cur = ""; continue; }
+      cur += ch;
+    }
+    cells.push(cur);
+    return cells.map(c => c.trim());
+  });
+  return rows;
+}
+
+function validateCsvCode(code) {
+  if (!code) return "Code is required.";
+  if (code.length !== 8) return "Code must contain exactly 8 characters.";
+  const location = code[0];
+  const numberPart = code.substring(3, 7);
+  const ownership = code[7];
+
+  if (!CSV_LOCATIONS[location]) return "Invalid location character \"" + location + "\" (must be X or S).";
+  if (!/^\d{4}$/.test(numberPart)) return "Vehicle number portion must be exactly 4 digits.";
+  if (!CSV_OWNERSHIP[ownership]) return "Invalid ownership character \"" + ownership + "\" (must be O or R).";
+  return null; // valid
+}
+
+async function handleCsvFile(event) {
+  const file = event.target.files[0];
+  event.target.value = ""; // allow re-selecting the same file later
+  if (!file) return;
+
+  document.getElementById("csvImportMsg").innerHTML = "";
+  const text = await file.text();
+  const rows = parseCsvText(text);
+
+  if (rows.length === 0) {
+    showMsg("csvImportMsg", "error", "The CSV file is empty.");
+    return;
+  }
+
+  const header = rows[0].map(h => h.toLowerCase());
+  if (header.length !== 2 || header[0] !== "vehicle_name" || header[1] !== "code") {
+    showMsg("csvImportMsg", "error", 'Invalid header. The first row must be exactly: vehicle_name,code');
+    return;
+  }
+
+  const dataRows = rows.slice(1);
+  if (dataRows.length === 0) {
+    showMsg("csvImportMsg", "error", "No data rows found below the header.");
+    return;
+  }
+
+  // Refresh vehicle cache so "already exists in database" checks are current
+  await loadVehicleCache();
+  const existingCodes = new Set(vehicleCache.map(v => v.code.toUpperCase()));
+  const existingNames = new Set(vehicleCache.map(v => v.vehicle_name.trim().toLowerCase()));
+
+  const seenNamesInFile = new Set();
+  const seenCodesInFile = new Set();
+
+  csvParsedRows = dataRows.map((cells, idx) => {
+    const rowNum = idx + 2; // account for header row = row 1
+    const vehicle_name = (cells[0] || "").trim();
+    const code = (cells[1] || "").trim().toUpperCase();
+
+    let reason = null;
+
+    if (!vehicle_name) reason = "Vehicle name is required.";
+    else if (!code) reason = "Code is required.";
+    else reason = validateCsvCode(code);
+
+    if (!reason && seenCodesInFile.has(code)) reason = "Duplicate code within this CSV file.";
+    if (!reason && seenNamesInFile.has(vehicle_name.toLowerCase())) reason = "Duplicate vehicle name within this CSV file.";
+    if (!reason && existingCodes.has(code)) reason = "Code already exists in the database.";
+    if (!reason && existingNames.has(vehicle_name.toLowerCase())) reason = "Vehicle name already exists in the database.";
+
+    if (vehicle_name) seenNamesInFile.add(vehicle_name.toLowerCase());
+    if (code) seenCodesInFile.add(code);
+
+    return { rowNum, vehicle_name, code, valid: !reason, reason };
+  });
+
+  renderCsvPreview();
+}
+
+function renderCsvPreview() {
+  const validCount = csvParsedRows.filter(r => r.valid).length;
+  const invalidCount = csvParsedRows.length - validCount;
+
+  document.getElementById("csvPreviewSummary").innerHTML =
+    '<div class="msg ' + (invalidCount > 0 ? "info" : "success") + '">' +
+    csvParsedRows.length + ' row(s) read — ' + validCount + ' valid, ' + invalidCount + ' invalid. ' +
+    (invalidCount > 0 ? "Invalid rows will be skipped and are not created." : "") +
+    '</div>';
+
+  const tbody = document.querySelector("#csvPreviewTable tbody");
+  tbody.innerHTML = csvParsedRows.map(r =>
+    '<tr>' +
+    '<td>' + r.rowNum + '</td>' +
+    '<td>' + escapeHtml(r.vehicle_name || "(empty)") + '</td>' +
+    '<td>' + escapeHtml(r.code || "(empty)") + '</td>' +
+    '<td>' + (r.valid
+      ? '<span style="color:var(--green-dark);font-weight:700;">Valid</span>'
+      : '<span style="color:var(--red);font-weight:700;">Invalid — ' + escapeHtml(r.reason) + '</span>') +
+    '</td>' +
+    '</tr>'
+  ).join("");
+
+  document.getElementById("csvPreviewCard").style.display = "block";
+  document.getElementById("csvImportProgress").innerHTML = "";
+  document.getElementById("csvConfirmBtn").disabled = (validCount === 0);
+}
+
+function cancelCsvImport() {
+  csvParsedRows = [];
+  document.getElementById("csvPreviewCard").style.display = "none";
+  document.getElementById("csvImportProgress").innerHTML = "";
+}
+
+async function confirmCsvImport() {
+  const validRows = csvParsedRows.filter(r => r.valid);
+  if (validRows.length === 0) return;
+
+  const btn = document.getElementById("csvConfirmBtn");
+  btn.disabled = true;
+  const progress = document.getElementById("csvImportProgress");
+
+  let created = 0, failed = 0;
+  for (let i = 0; i < validRows.length; i++) {
+    const row = validRows[i];
+    progress.innerHTML = '<span class="spinner" style="border-color:var(--green);border-top-color:transparent;"></span>' +
+      "Creating " + (i + 1) + "/" + validRows.length + " — " + escapeHtml(row.code) + "...";
+    try {
+      const { error: insertErr } = await sb.from("master").insert({ code: row.code, vehicle_name: row.vehicle_name });
+      if (insertErr) throw insertErr;
+
+      const { publicUrl } = await generateAndUploadQr(row.code, row.vehicle_name);
+      await sb.from("master").update({ qr_file_link: publicUrl }).eq("code", row.code);
+      created++;
+    } catch (err) {
+      console.error("CSV import row failed", row, err);
+      failed++;
+    }
+  }
+
+  progress.innerHTML = '<div class="msg ' + (failed === 0 ? "success" : "error") + '">' +
+    created + " vehicle(s) created and QR codes generated successfully." +
+    (failed > 0 ? " " + failed + " row(s) failed during creation (see console)." : "") +
+    "</div>";
+
+  btn.disabled = false;
+  csvParsedRows = [];
+  await loadVehicleCache(); // refresh dropdowns everywhere with the newly imported vehicles
+}
+
+/* ============ QR GENERATION HELPERS ============ */
+function sanitizeFileName(name) {
+  return name.replace(/[\\/:*?"<>|]/g, "-").trim();
+}
+
+async function fetchQrSvg(codeValue) {
+  const url = "https://api.qrserver.com/v1/create-qr-code/?size=1000x1000&ecc=H&format=svg&data=" + encodeURIComponent(codeValue);
+  const res = await fetch(url);
+  if (!res.ok) throw new Error("QR generation failed (HTTP " + res.status + ")");
+  const svgText = await res.text();
+  if (!svgText.includes("<svg")) throw new Error("Invalid SVG response");
+  return svgText;
+}
+
+async function generateAndUploadQr(code, name) {
+  const svg = await fetchQrSvg(code);
+  const fileName = sanitizeFileName(code + "_" + name) + ".svg";
+  const { error: uploadErr } = await sb.storage.from(BUCKET_NAME)
+    .upload(fileName, new Blob([svg], { type: "image/svg+xml" }), { upsert: true, contentType: "image/svg+xml" });
+  if (uploadErr) throw uploadErr;
+  const { data: pub } = sb.storage.from(BUCKET_NAME).getPublicUrl(fileName);
+  return { svg, publicUrl: pub.publicUrl };
+}
+
+/* ============ GENERATE QR CODES (single / ALL) + A4 PRINT LAYOUT ============ */
+async function generateSelected() {
+  const sel = document.getElementById("generateSelect").value;
+  document.getElementById("generateMsg").innerHTML = "";
+  document.getElementById("printBtn").style.display = "none";
+
+  if (!sel) { showMsg("generateMsg", "error", "Please select a vehicle or ALL."); return; }
+
+  let targets = [];
+  if (sel === "__ALL__") {
+    const checked = Array.from(document.querySelectorAll(".veh-chk:checked")).map(c => c.value);
+    targets = vehicleCache.filter(v => checked.includes(v.code));
+  } else {
+    const v = vehicleCache.find(v => v.code === sel);
+    if (v) targets = [v];
+  }
+
+  if (targets.length === 0) { showMsg("generateMsg", "error", "No vehicles selected."); return; }
+
+  const forceRegen = document.getElementById("forceRegen").checked;
+  const btn = document.getElementById("genBtn");
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span>Generating 0/' + targets.length + '...';
+
+  const results = [];
+  let done = 0;
+
+  for (const v of targets) {
+    try {
+      let url = v.qr_file_link;
+      if (forceRegen || !url) {
+        const gen = await generateAndUploadQr(v.code, v.vehicle_name);
+        url = gen.publicUrl;
+        await sb.from("master").update({ qr_file_link: url }).eq("code", v.code);
+        v.qr_file_link = url; // keep cache in sync
+      }
+      results.push({ code: v.code, name: v.vehicle_name, url });
+    } catch (err) {
+      console.error("Error generating for", v.code, err);
+    }
+    done++;
+    btn.innerHTML = '<span class="spinner"></span>Generating ' + done + '/' + targets.length + '...';
+  }
+
+  btn.disabled = false;
+  btn.textContent = "Generate QR Code(s)";
+
+  if (results.length === 0) {
+    showMsg("generateMsg", "error", "Failed to generate any QR codes.");
+    return;
+  }
+
+  showMsg("generateMsg", "success", results.length + " QR code(s) ready. " + Math.ceil(results.length / 2) + " A4 page(s) will print.");
+  renderA4Pages(results);
+  document.getElementById("printBtn").style.display = "inline-block";
+}
+
+function renderA4Pages(items) {
+  const area = document.getElementById("qrPrintArea");
+  area.innerHTML = "";
+  for (let i = 0; i < items.length; i += 2) {
+    const pair = items.slice(i, i + 2);
+    const page = document.createElement("div");
+    page.className = "a4-page";
+    page.innerHTML = pair.map(it =>
+      '<div class="qr-print-card"><div class="qr-wrap">' +
+      '<img src="' + it.url + '" alt="' + escapeHtml(it.name) + '">' +
+      '<div class="qr-name-overlay">' + escapeHtml(it.name) + '</div>' +
+      '</div></div>'
+    ).join("") + (pair.length === 1 ? '<div class="qr-print-card empty"></div>' : "");
+    area.appendChild(page);
+  }
+}
+
+/* ============ DOWNLOAD REPORT ============ */
+async function runReport() {
+  const from = document.getElementById("reportFrom").value;
+  const to = document.getElementById("reportTo").value;
+  const vehicle = document.getElementById("reportVehicle").value;
+  document.getElementById("reportMsg").innerHTML = "";
+  document.getElementById("reportTable").style.display = "none";
+  document.getElementById("reportPrintBtn").style.display = "none";
+  document.getElementById("reportCsvBtn").style.display = "none";
+
+  if (!from || !to) { showMsg("reportMsg", "error", "Please select both From and To dates."); return; }
+
+  const btn = document.getElementById("reportBtn");
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span>Generating...';
+
+  try {
+    const fromIso = new Date(from + "T00:00:00").toISOString();
+    const toIso = new Date(to + "T23:59:59").toISOString();
+
+    let query = sb.from("diesel_data")
+      .select("entry_datetime, code, vehicle_name, quantity, meter_reading, operator_name, operator_mobile, driver_name, driver_id_mobile")
+      .gte("entry_datetime", fromIso)
+      .lte("entry_datetime", toIso)
+      .order("entry_datetime", { ascending: false });
+
+    if (vehicle && vehicle !== "__ALL__") {
+      query = query.eq("code", vehicle);
+    }
+
+    const { data, error } = await query;
+    if (error) throw error;
+
+    lastReportRows = data || [];
+    btn.disabled = false;
+    btn.textContent = "Generate Report";
+
+    if (lastReportRows.length === 0) {
+      showMsg("reportMsg", "info", "No records found for the selected date range / vehicle.");
+      document.getElementById("reportPrintArea").innerHTML = "";
+      return;
+    }
+
+    const tbody = document.querySelector("#reportTable tbody");
+    tbody.innerHTML = lastReportRows.map(r =>
+      '<tr><td>' + new Date(r.entry_datetime).toLocaleString() + '</td><td>' + r.code + '</td><td>' +
+      escapeHtml(r.vehicle_name) + '</td><td>' + r.quantity + '</td><td>' + r.meter_reading + '</td><td>' +
+      escapeHtml(r.operator_name) + '</td><td>' + escapeHtml(r.operator_mobile) + '</td><td>' +
+      escapeHtml(r.driver_name || "-") + '</td><td>' + escapeHtml(r.driver_id_mobile || "-") + '</td></tr>'
+    ).join("");
+    document.getElementById("reportTable").style.display = "table";
+    showMsg("reportMsg", "success", lastReportRows.length + " record(s) found.");
+    document.getElementById("reportPrintBtn").style.display = "inline-block";
+    document.getElementById("reportCsvBtn").style.display = "inline-block";
+    renderReportPrintArea(lastReportRows, from, to, vehicle);
+  } catch (err) {
+    console.error(err);
+    btn.disabled = false;
+    btn.textContent = "Generate Report";
+    showMsg("reportMsg", "error", "Error generating report: " + (err.message || ""));
+  }
+}
+
+function renderReportPrintArea(rows, from, to, vehicle) {
+  const label = (vehicle === "__ALL__" || !vehicle) ? "All Vehicles" : vehicle;
+  const html =
+    '<div style="padding:15mm;font-family:Arial,sans-serif;">' +
+    '<h2 style="color:#125c2c;">Diesel Consumption Report</h2>' +
+    '<p style="color:#555;">Vehicle: ' + escapeHtml(label) + ' &nbsp;|&nbsp; Period: ' + from + ' to ' + to + '</p>' +
+    '<table style="width:100%;border-collapse:collapse;font-size:10pt;">' +
+    '<thead><tr>' +
+    ['Date/Time','Code','Vehicle','Qty (L)','Meter','Operator','Op. Mobile','Driver','Driver ID/Mobile'].map(h =>
+      '<th style="border:1px solid #ccc;padding:6px;background:#e8f7ee;text-align:left;">' + h + '</th>').join("") +
+    '</tr></thead><tbody>' +
+    rows.map(r =>
+      '<tr>' +
+      '<td style="border:1px solid #ccc;padding:6px;">' + new Date(r.entry_datetime).toLocaleString() + '</td>' +
+      '<td style="border:1px solid #ccc;padding:6px;">' + r.code + '</td>' +
+      '<td style="border:1px solid #ccc;padding:6px;">' + escapeHtml(r.vehicle_name) + '</td>' +
+      '<td style="border:1px solid #ccc;padding:6px;">' + r.quantity + '</td>' +
+      '<td style="border:1px solid #ccc;padding:6px;">' + r.meter_reading + '</td>' +
+      '<td style="border:1px solid #ccc;padding:6px;">' + escapeHtml(r.operator_name) + '</td>' +
+      '<td style="border:1px solid #ccc;padding:6px;">' + escapeHtml(r.operator_mobile) + '</td>' +
+      '<td style="border:1px solid #ccc;padding:6px;">' + escapeHtml(r.driver_name || "-") + '</td>' +
+      '<td style="border:1px solid #ccc;padding:6px;">' + escapeHtml(r.driver_id_mobile || "-") + '</td>' +
+      '</tr>').join("") +
+    '</tbody></table></div>';
+  document.getElementById("reportPrintArea").innerHTML = html;
+}
+
+function downloadCsv() {
+  if (!lastReportRows || lastReportRows.length === 0) return;
+  const headers = ["Date/Time","Code","Vehicle","Quantity (L)","Meter Reading","Operator","Operator Mobile","Driver Name","Driver ID/Mobile"];
+  const rows = lastReportRows.map(r => [
+    new Date(r.entry_datetime).toLocaleString(),
+    r.code, r.vehicle_name, r.quantity, r.meter_reading, r.operator_name, r.operator_mobile,
+    r.driver_name || "", r.driver_id_mobile || ""
+  ]);
+  let csv = headers.join(",") + "\n";
+  rows.forEach(row => {
+    csv += row.map(v => '"' + String(v).replace(/"/g, '""') + '"').join(",") + "\n";
+  });
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const link = document.createElement("a");
+  link.href = URL.createObjectURL(blob);
+  link.download = "diesel_report.csv";
+  link.click();
+}
+/* ============ DRIVER INFORMATION MANAGEMENT ============ */
+let driverSearchTimer = null;
+let currentDriverRows = [];
+
+async function loadDrivers(searchTerm) {
+  const tbody = document.querySelector("#driverTable tbody");
+  tbody.innerHTML = '<tr><td colspan="4" style="color:var(--muted);">Loading...</td></tr>';
+  document.getElementById("driverListMsg").innerHTML = "";
+
+  try {
+    let query = sb.from("driver_information")
+      .select("id, name, driver_id, driver_mobile_number")
+      .order("name")
+      .limit(50); // don't pull the whole table
+
+    if (searchTerm) {
+      const t = searchTerm.trim();
+      // Single server-side query across all three fields — no client-side
+      // full-table filtering, no extra round trips.
+      query = query.or(
+        "name.ilike.%" + t + "%,driver_id.ilike.%" + t + "%,driver_mobile_number.ilike.%" + t + "%"
+      );
+    }
+
+    const { data, error } = await query;
+    if (error) throw error;
+    renderDriverTable(data || []);
+  } catch (err) {
+    console.error(err);
+    tbody.innerHTML = '<tr><td colspan="4" style="color:var(--red);">Error loading drivers.</td></tr>';
+  }
+}
+
+function renderDriverTable(rows) {
+  currentDriverRows = rows;
+  const tbody = document.querySelector("#driverTable tbody");
+  if (rows.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="4" style="color:var(--muted);">No drivers found.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = rows.map(d =>
+    '<tr>' +
+    '<td>' + escapeHtml(d.name) + '</td>' +
+    '<td>' + escapeHtml(d.driver_id) + '</td>' +
+    '<td>' + escapeHtml(d.driver_mobile_number) + '</td>' +
+    '<td>' +
+    '<button class="btn small outline" style="margin-right:6px;" onclick="editDriver(\'' + d.id + '\')">Edit</button>' +
+    '<button class="btn small" style="background:var(--red);" onclick="deleteDriver(\'' + d.id + '\')">Delete</button>' +
+    '</td>' +
+    '</tr>'
+  ).join("");
+}
+
+function onDriverSearchInput() {
+  clearTimeout(driverSearchTimer);
+  const term = document.getElementById("driverSearchInput").value;
+  driverSearchTimer = setTimeout(() => loadDrivers(term), 350); // debounce
+}
+
+function editDriver(id) {
+  const d = currentDriverRows.find(r => String(r.id) === String(id));
+  if (!d) return;
+  document.getElementById("driverFormTitle").textContent = "Edit Driver";
+  document.getElementById("driverEditId").value = d.id;
+  document.getElementById("driverFormName").value = d.name;
+  document.getElementById("driverFormId").value = d.driver_id;
+  document.getElementById("driverFormMobile").value = d.driver_mobile_number;
+  document.getElementById("driverSaveBtn").textContent = "Save Changes";
+  document.getElementById("driverCancelEditBtn").style.display = "inline-block";
+  document.getElementById("driverFormMsg").innerHTML = "";
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+function resetDriverForm() {
+  document.getElementById("driverFormTitle").textContent = "Add New Driver";
+  document.getElementById("driverEditId").value = "";
+  document.getElementById("driverFormName").value = "";
+  document.getElementById("driverFormId").value = "";
+  document.getElementById("driverFormMobile").value = "";
+  document.getElementById("driverSaveBtn").textContent = "Save Driver";
+  document.getElementById("driverCancelEditBtn").style.display = "none";
+  document.getElementById("driverFormMsg").innerHTML = "";
+}
+
+async function saveDriver() {
+  const msgBox = "driverFormMsg";
+  document.getElementById(msgBox).innerHTML = "";
+
+  const editId = document.getElementById("driverEditId").value;
+  const name = document.getElementById("driverFormName").value.trim();
+  const driverId = document.getElementById("driverFormId").value.trim();
+  const mobile = document.getElementById("driverFormMobile").value.trim();
+
+  if (!name) { showMsg(msgBox, "error", "Driver Name is required."); return; }
+  if (!driverId) { showMsg(msgBox, "error", "Driver ID is required."); return; }
+  if (!mobile) { showMsg(msgBox, "error", "Driver Mobile Number is required."); return; }
+
+  const btn = document.getElementById("driverSaveBtn");
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span>Saving...';
+
+  try {
+    // Duplicate checks (exclude the record being edited, if any)
+    let dupQuery = sb.from("driver_information").select("id, driver_id, driver_mobile_number")
+      .or("driver_id.eq." + driverId + ",driver_mobile_number.eq." + mobile);
+    const { data: dups, error: dupErr } = await dupQuery;
+    if (dupErr) throw dupErr;
+
+    const conflict = (dups || []).find(d => String(d.id) !== String(editId));
+    if (conflict) {
+      const reason = conflict.driver_id === driverId
+        ? "A driver with this Driver ID already exists."
+        : "A driver with this Mobile Number already exists.";
+      showMsg(msgBox, "error", reason);
+      btn.disabled = false;
+      btn.textContent = editId ? "Save Changes" : "Save Driver";
+      return;
+    }
+
+    if (editId) {
+      const { error: updErr } = await sb.from("driver_information")
+        .update({ name, driver_id: driverId, driver_mobile_number: mobile })
+        .eq("id", editId);
+      if (updErr) throw updErr;
+      showMsg(msgBox, "success", "Driver information updated successfully.");
+    } else {
+      const { error: insErr } = await sb.from("driver_information")
+        .insert({ name, driver_id: driverId, driver_mobile_number: mobile });
+      if (insErr) throw insErr;
+      showMsg(msgBox, "success", "Driver information added successfully.");
+    }
+
+    resetDriverForm();
+    // resetDriverForm clears the message box, so show it again after
+    document.getElementById(msgBox).innerHTML =
+      '<div class="msg success">Driver information ' + (editId ? "updated" : "added") + ' successfully.</div>';
+    loadDrivers(document.getElementById("driverSearchInput").value);
+  } catch (err) {
+    console.error(err);
+    showMsg(msgBox, "error", "Error: " + (err.message || "could not save driver."));
+  }
+  btn.disabled = false;
+  btn.textContent = editId ? "Save Changes" : "Save Driver";
+}
+
+async function deleteDriver(id) {
+  const d = currentDriverRows.find(r => String(r.id) === String(id));
+  const name = d ? d.name : "this driver";
+  const ok = confirm("Are you sure you want to delete this driver?\n\n" + name +
+    "\n\nThis only removes them from the current driver list — historical diesel entries already saved with this driver's name will not be changed.");
+  if (!ok) return;
+
+  try {
+    const { error } = await sb.from("driver_information").delete().eq("id", id);
+    if (error) throw error;
+    loadDrivers(document.getElementById("driverSearchInput").value);
+  } catch (err) {
+    console.error(err);
+    alert("Error deleting driver: " + (err.message || ""));
+  }
+}
+
+/* ============ DRIVER CSV BULK IMPORT ============ */
+let driverCsvParsedRows = [];
+
+function downloadDriverCsvTemplate() {
+  const csv = "driver_name,driver_id,driver_mobile_number\nAbdul Karim,DR-1025,017XXXXXXXX\nRahim Uddin,DR-1026,018XXXXXXXX\n";
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const link = document.createElement("a");
+  link.href = URL.createObjectURL(blob);
+  link.download = "driver_import_template.csv";
+  link.click();
+}
+
+async function handleDriverCsvFile(event) {
+  const file = event.target.files[0];
+  event.target.value = "";
+  if (!file) return;
+
+  document.getElementById("driverCsvImportMsg").innerHTML = "";
+  const text = await file.text();
+  const rows = parseCsvText(text); // reused from vehicle CSV import
+
+  if (rows.length === 0) {
+    showMsg("driverCsvImportMsg", "error", "The CSV file is empty.");
+    return;
+  }
+
+  const header = rows[0].map(h => h.toLowerCase());
+  if (header.length !== 3 || header[0] !== "driver_name" || header[1] !== "driver_id" || header[2] !== "driver_mobile_number") {
+    showMsg("driverCsvImportMsg", "error", "Invalid header. The first row must be exactly: driver_name,driver_id,driver_mobile_number");
+    return;
+  }
+
+  const dataRows = rows.slice(1);
+  if (dataRows.length === 0) {
+    showMsg("driverCsvImportMsg", "error", "No data rows found below the header.");
+    return;
+  }
+
+  // Fresh lookup so "already exists in database" checks are current
+  const { data: existingDrivers } = await sb.from("driver_information").select("driver_id, driver_mobile_number");
+  const existingIds = new Set((existingDrivers || []).map(d => d.driver_id.toLowerCase()));
+  const existingMobiles = new Set((existingDrivers || []).map(d => d.driver_mobile_number.toLowerCase()));
+
+  const seenIdsInFile = new Set();
+  const seenMobilesInFile = new Set();
+
+  driverCsvParsedRows = dataRows.map((cells, idx) => {
+    const rowNum = idx + 2;
+    const name = (cells[0] || "").trim();
+    const driverId = (cells[1] || "").trim();
+    const mobile = (cells[2] || "").trim();
+
+    let reason = null;
+    if (!name) reason = "Driver Name is required.";
+    else if (!driverId) reason = "Driver ID is required.";
+    else if (!mobile) reason = "Driver Mobile Number is required.";
+
+    if (!reason && seenIdsInFile.has(driverId.toLowerCase())) reason = "Duplicate Driver ID within this CSV file.";
+    if (!reason && seenMobilesInFile.has(mobile.toLowerCase())) reason = "Duplicate Mobile Number within this CSV file.";
+    if (!reason && existingIds.has(driverId.toLowerCase())) reason = "Driver ID already exists in the database.";
+    if (!reason && existingMobiles.has(mobile.toLowerCase())) reason = "Mobile Number already exists in the database.";
+
+    if (driverId) seenIdsInFile.add(driverId.toLowerCase());
+    if (mobile) seenMobilesInFile.add(mobile.toLowerCase());
+
+    return { rowNum, name, driverId, mobile, valid: !reason, reason };
+  });
+
+  renderDriverCsvPreview();
+}
+
+function renderDriverCsvPreview() {
+  const validCount = driverCsvParsedRows.filter(r => r.valid).length;
+  const invalidCount = driverCsvParsedRows.length - validCount;
+
+  document.getElementById("driverCsvPreviewSummary").innerHTML =
+    '<div class="msg ' + (invalidCount > 0 ? "info" : "success") + '">' +
+    driverCsvParsedRows.length + ' row(s) read — ' + validCount + ' valid, ' + invalidCount + ' invalid. ' +
+    (invalidCount > 0 ? "Invalid rows will be skipped and are not created." : "") +
+    '</div>';
+
+  const tbody = document.querySelector("#driverCsvPreviewTable tbody");
+  tbody.innerHTML = driverCsvParsedRows.map(r =>
+    '<tr>' +
+    '<td>' + r.rowNum + '</td>' +
+    '<td>' + escapeHtml(r.name || "(empty)") + '</td>' +
+    '<td>' + escapeHtml(r.driverId || "(empty)") + '</td>' +
+    '<td>' + escapeHtml(r.mobile || "(empty)") + '</td>' +
+    '<td>' + (r.valid
+      ? '<span style="color:var(--green-dark);font-weight:700;">Valid</span>'
+      : '<span style="color:var(--red);font-weight:700;">Invalid — ' + escapeHtml(r.reason) + '</span>') +
+    '</td>' +
+    '</tr>'
+  ).join("");
+
+  document.getElementById("driverCsvPreviewCard").style.display = "block";
+  document.getElementById("driverCsvImportProgress").innerHTML = "";
+  document.getElementById("driverCsvConfirmBtn").disabled = (validCount === 0);
+}
+
+function cancelDriverCsvImport() {
+  driverCsvParsedRows = [];
+  document.getElementById("driverCsvPreviewCard").style.display = "none";
+  document.getElementById("driverCsvImportProgress").innerHTML = "";
+}
+
+async function confirmDriverCsvImport() {
+  const validRows = driverCsvParsedRows.filter(r => r.valid);
+  if (validRows.length === 0) return;
+
+  const btn = document.getElementById("driverCsvConfirmBtn");
+  btn.disabled = true;
+  const progress = document.getElementById("driverCsvImportProgress");
+
+  let created = 0, failed = 0;
+  for (let i = 0; i < validRows.length; i++) {
+    const row = validRows[i];
+    progress.innerHTML = '<span class="spinner" style="border-color:var(--green);border-top-color:transparent;"></span>' +
+      "Creating " + (i + 1) + "/" + validRows.length + " — " + escapeHtml(row.driverId) + "...";
+    try {
+      const { error } = await sb.from("driver_information")
+        .insert({ name: row.name, driver_id: row.driverId, driver_mobile_number: row.mobile });
+      if (error) throw error;
+      created++;
+    } catch (err) {
+      console.error("Driver CSV import row failed", row, err);
+      failed++;
+    }
+  }
+
+  progress.innerHTML = '<div class="msg ' + (failed === 0 ? "success" : "error") + '">' +
+    created + " driver(s) created successfully." +
+    (failed > 0 ? " " + failed + " row(s) failed during creation (see console)." : "") +
+    "</div>";
+
+  btn.disabled = false;
+  driverCsvParsedRows = [];
+  loadDrivers(document.getElementById("driverSearchInput").value);
+}
+/* ============ CONSUMPTION RATE MANAGEMENT ============ */
+let rateSearchTimer = null;
+let currentRateRows = [];
+
+function populateRateVehicleSelect() {
+  const sel = document.getElementById("rateFormVehicle");
+  if (!vehicleCache || vehicleCache.length === 0) {
+    sel.innerHTML = '<option value="">No vehicles found — add one under "Create New QR Code" first.</option>';
+    return;
+  }
+  const current = sel.value;
+  sel.innerHTML = '<option value="">-- Select a vehicle --</option>' +
+    naturalSortByName(vehicleCache).map(v => '<option value="' + v.code + '">' + escapeHtml(v.vehicle_name) + '</option>').join("");
+  if (current) sel.value = current;
+}
+
+async function loadRates(searchTerm) {
+  if (!vehicleCache || vehicleCache.length === 0) await loadVehicleCache();
+  populateRateVehicleSelect();
+
+  const tbody = document.querySelector("#rateTable tbody");
+  tbody.innerHTML = '<tr><td colspan="4" style="color:var(--muted);">Loading...</td></tr>';
+  document.getElementById("rateListMsg").innerHTML = "";
+
+  try {
+    let query = sb.from("consumption_rate")
+      .select("code, vehicle_name, consumption_rate_per_day")
+      .order("code")
+      .limit(50); // don't pull the whole table
+
+    if (searchTerm) {
+      const t = searchTerm.trim();
+      query = query.or("code.ilike.%" + t + "%,vehicle_name.ilike.%" + t + "%");
+    }
+
+    const { data, error } = await query;
+    if (error) throw error;
+    renderRateTable(data || []);
+  } catch (err) {
+    console.error(err);
+    tbody.innerHTML = '<tr><td colspan="4" style="color:var(--red);">Error loading consumption rates.</td></tr>';
+  }
+}
+
+function renderRateTable(rows) {
+  currentRateRows = rows;
+  const tbody = document.querySelector("#rateTable tbody");
+  if (rows.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="4" style="color:var(--muted);">No consumption rates set yet.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = rows.map(r =>
+    '<tr>' +
+    '<td>' + escapeHtml(r.code) + '</td>' +
+    '<td>' + escapeHtml(r.vehicle_name) + '</td>' +
+    '<td>' + r.consumption_rate_per_day + ' L/day</td>' +
+    '<td>' +
+    '<button class="btn small outline" style="margin-right:6px;" onclick="editRate(\'' + r.code + '\')">Edit</button>' +
+    '<button class="btn small" style="background:var(--red);" onclick="deleteRate(\'' + r.code + '\')">Delete</button>' +
+    '</td>' +
+    '</tr>'
+  ).join("");
+}
+
+function onRateSearchInput() {
+  clearTimeout(rateSearchTimer);
+  const term = document.getElementById("rateSearchInput").value;
+  rateSearchTimer = setTimeout(() => loadRates(term), 350); // debounce
+}
+
+function editRate(code) {
+  const r = currentRateRows.find(row => row.code === code);
+  if (!r) return;
+  document.getElementById("rateFormTitle").textContent = "Edit Consumption Rate";
+  document.getElementById("rateFormVehicle").value = r.code;
+  document.getElementById("rateFormValue").value = r.consumption_rate_per_day;
+  document.getElementById("rateSaveBtn").textContent = "Save Changes";
+  document.getElementById("rateCancelEditBtn").style.display = "inline-block";
+  document.getElementById("rateFormMsg").innerHTML = "";
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+function resetRateForm() {
+  document.getElementById("rateFormTitle").textContent = "Set Consumption Rate";
+  document.getElementById("rateFormVehicle").value = "";
+  document.getElementById("rateFormValue").value = "";
+  document.getElementById("rateSaveBtn").textContent = "Save Rate";
+  document.getElementById("rateCancelEditBtn").style.display = "none";
+  document.getElementById("rateFormMsg").innerHTML = "";
+}
+
+async function saveRate() {
+  const msgBox = "rateFormMsg";
+  document.getElementById(msgBox).innerHTML = "";
+
+  const code = document.getElementById("rateFormVehicle").value;
+  const rate = parseFloat(document.getElementById("rateFormValue").value);
+
+  if (!code) { showMsg(msgBox, "error", "Please select a vehicle."); return; }
+  if (isNaN(rate) || rate < 0) { showMsg(msgBox, "error", "Please enter a valid consumption rate."); return; }
+
+  const vehicle = vehicleCache.find(v => v.code === code);
+  const btn = document.getElementById("rateSaveBtn");
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span>Saving...';
+
+  try {
+    // upsert on code (the table's primary key) — works for both a
+    // brand-new rate and editing an existing one in a single call.
+    const { error } = await sb.from("consumption_rate")
+      .upsert({ code, vehicle_name: vehicle ? vehicle.vehicle_name : code, consumption_rate_per_day: rate }, { onConflict: "code" });
+    if (error) throw error;
+
+    resetRateForm();
+    document.getElementById(msgBox).innerHTML = '<div class="msg success">Consumption rate saved successfully.</div>';
+    loadRates(document.getElementById("rateSearchInput").value);
+  } catch (err) {
+    console.error(err);
+    showMsg(msgBox, "error", "Error: " + (err.message || "could not save rate."));
+  }
+  btn.disabled = false;
+  btn.textContent = document.getElementById("rateCancelEditBtn").style.display === "inline-block" ? "Save Changes" : "Save Rate";
+}
+
+async function deleteRate(code) {
+  const r = currentRateRows.find(row => row.code === code);
+  const label = r ? (r.code + " — " + r.vehicle_name) : code;
+  const ok = confirm("Are you sure you want to delete the consumption rate for this vehicle?\n\n" + label);
+  if (!ok) return;
+
+  try {
+    const { error } = await sb.from("consumption_rate").delete().eq("code", code);
+    if (error) throw error;
+    loadRates(document.getElementById("rateSearchInput").value);
+  } catch (err) {
+    console.error(err);
+    alert("Error deleting rate: " + (err.message || ""));
+  }
+}
+
+/* ============ CONSUMPTION RATE CSV BULK IMPORT ============ */
+let rateCsvParsedRows = [];
+
+function downloadRateCsvTemplate() {
+  const csv = "code,consumption_rate_per_day\nDF01,12.5\nDF02,10\n";
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const link = document.createElement("a");
+  link.href = URL.createObjectURL(blob);
+  link.download = "consumption_rate_template.csv";
+  link.click();
+}
+
+async function handleRateCsvFile(event) {
+  const file = event.target.files[0];
+  event.target.value = "";
+  if (!file) return;
+
+  document.getElementById("rateCsvImportMsg").innerHTML = "";
+  const text = await file.text();
+  const rows = parseCsvText(text); // reused from vehicle CSV import
+
+  if (rows.length === 0) {
+    showMsg("rateCsvImportMsg", "error", "The CSV file is empty.");
+    return;
+  }
+
+  const header = rows[0].map(h => h.toLowerCase());
+  if (header.length !== 2 || header[0] !== "code" || header[1] !== "consumption_rate_per_day") {
+    showMsg("rateCsvImportMsg", "error", "Invalid header. The first row must be exactly: code,consumption_rate_per_day");
+    return;
+  }
+
+  const dataRows = rows.slice(1);
+  if (dataRows.length === 0) {
+    showMsg("rateCsvImportMsg", "error", "No data rows found below the header.");
+    return;
+  }
+
+  await loadVehicleCache(); // fresh vehicle list to validate codes against
+  const vehicleByCode = new Map(vehicleCache.map(v => [v.code.toUpperCase(), v.vehicle_name]));
+  const seenCodesInFile = new Set();
+
+  rateCsvParsedRows = dataRows.map((cells, idx) => {
+    const rowNum = idx + 2;
+    const code = (cells[0] || "").trim().toUpperCase();
+    const rateStr = (cells[1] || "").trim();
+    const rate = parseFloat(rateStr);
+
+    let reason = null;
+    if (!code) reason = "Vehicle code is required.";
+    else if (!vehicleByCode.has(code)) reason = "Unknown vehicle code — create the vehicle first.";
+    else if (!rateStr) reason = "Consumption rate is required.";
+    else if (isNaN(rate) || rate < 0) reason = "Consumption rate must be a valid non-negative number.";
+
+    if (!reason && seenCodesInFile.has(code)) reason = "Duplicate code within this CSV file.";
+    if (code) seenCodesInFile.add(code);
+
+    return {
+      rowNum, code, rate: isNaN(rate) ? null : rate,
+      vehicleName: vehicleByCode.get(code) || "",
+      valid: !reason, reason
+    };
+  });
+
+  renderRateCsvPreview();
+}
+
+function renderRateCsvPreview() {
+  const validCount = rateCsvParsedRows.filter(r => r.valid).length;
+  const invalidCount = rateCsvParsedRows.length - validCount;
+
+  document.getElementById("rateCsvPreviewSummary").innerHTML =
+    '<div class="msg ' + (invalidCount > 0 ? "info" : "success") + '">' +
+    rateCsvParsedRows.length + ' row(s) read — ' + validCount + ' valid, ' + invalidCount + ' invalid. ' +
+    (invalidCount > 0 ? "Invalid rows will be skipped and are not saved." : "") +
+    '</div>';
+
+  const tbody = document.querySelector("#rateCsvPreviewTable tbody");
+  tbody.innerHTML = rateCsvParsedRows.map(r =>
+    '<tr>' +
+    '<td>' + r.rowNum + '</td>' +
+    '<td>' + escapeHtml(r.code || "(empty)") + '</td>' +
+    '<td>' + escapeHtml(r.vehicleName || "-") + '</td>' +
+    '<td>' + (r.rate !== null ? r.rate : "-") + '</td>' +
+    '<td>' + (r.valid
+      ? '<span style="color:var(--green-dark);font-weight:700;">Valid</span>'
+      : '<span style="color:var(--red);font-weight:700;">Invalid — ' + escapeHtml(r.reason) + '</span>') +
+    '</td>' +
+    '</tr>'
+  ).join("");
+
+  document.getElementById("rateCsvPreviewCard").style.display = "block";
+  document.getElementById("rateCsvImportProgress").innerHTML = "";
+  document.getElementById("rateCsvConfirmBtn").disabled = (validCount === 0);
+}
+
+function cancelRateCsvImport() {
+  rateCsvParsedRows = [];
+  document.getElementById("rateCsvPreviewCard").style.display = "none";
+  document.getElementById("rateCsvImportProgress").innerHTML = "";
+}
+
+async function confirmRateCsvImport() {
+  const validRows = rateCsvParsedRows.filter(r => r.valid);
+  if (validRows.length === 0) return;
+
+  const btn = document.getElementById("rateCsvConfirmBtn");
+  btn.disabled = true;
+  const progress = document.getElementById("rateCsvImportProgress");
+
+  try {
+    // Single batch upsert — much faster than one request per row, and
+    // avoids unnecessary repeated database round trips.
+    const payload = validRows.map(r => ({
+      code: r.code, vehicle_name: r.vehicleName, consumption_rate_per_day: r.rate
+    }));
+    const { error } = await sb.from("consumption_rate").upsert(payload, { onConflict: "code" });
+    if (error) throw error;
+
+    progress.innerHTML = '<div class="msg success">' + validRows.length + ' consumption rate(s) saved successfully.</div>';
+  } catch (err) {
+    console.error("Rate CSV import failed", err);
+    progress.innerHTML = '<div class="msg error">Error saving rates: ' + (err.message || "") + '</div>';
+  }
+
+  btn.disabled = false;
+  rateCsvParsedRows = [];
+  loadRates(document.getElementById("rateSearchInput").value);
+}
+/* ============ OPERATOR INFORMATION (operator_login table) ============ */
+let operatorSearchTimer = null;
+let currentOperatorRows = [];
+let revealedOperatorIds = new Set();
+
+async function loadOperators(searchTerm) {
+  const tbody = document.querySelector("#operatorTable tbody");
+  tbody.innerHTML = '<tr><td colspan="6" style="color:var(--muted);">Loading...</td></tr>';
+  document.getElementById("operatorListMsg").innerHTML = "";
+
+  try {
+    let query = sb.from("operator_login")
+      .select("id, name, mobile, pass, XIC_ID, created_at")
+      .order("created_at", { ascending: false })
+      .limit(50); // don't pull the whole table
+
+    if (searchTerm) {
+      const t = searchTerm.trim();
+      let orParts = ["name.ilike.%" + t + "%", "mobile.ilike.%" + t + "%"];
+      if (/^\d+$/.test(t)) orParts.push("XIC_ID.eq." + t);
+      query = query.or(orParts.join(","));
+    }
+
+    const { data, error } = await query;
+    if (error) throw error;
+    renderOperatorTable(data || []);
+  } catch (err) {
+    console.error(err);
+    tbody.innerHTML = '<tr><td colspan="6" style="color:var(--red);">Error loading operators.</td></tr>';
+  }
+}
+
+function maskPassword(pass) {
+  if (!pass) return "-";
+  return "•".repeat(Math.min(pass.length, 10));
+}
+
+function renderOperatorTable(rows) {
+  currentOperatorRows = rows;
+  const tbody = document.querySelector("#operatorTable tbody");
+  if (rows.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="6" style="color:var(--muted);">No operators found.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = rows.map(o => {
+    const revealed = revealedOperatorIds.has(o.id);
+    return '<tr>' +
+      '<td>' + escapeHtml(o.name) + '</td>' +
+      '<td>' + escapeHtml(o.mobile) + '</td>' +
+      '<td>' + escapeHtml(o.XIC_ID) + '</td>' +
+      '<td>' +
+      '<span style="font-family:monospace;">' + escapeHtml(revealed ? o.pass : maskPassword(o.pass)) + '</span> ' +
+      '<button class="btn small outline" style="width:auto;padding:3px 8px;font-size:11px;" onclick="toggleRevealPassword(\'' + o.id + '\')">' + (revealed ? "Hide" : "Show") + '</button>' +
+      '</td>' +
+      '<td>' + new Date(o.created_at).toLocaleDateString() + '</td>' +
+      '<td>' +
+      '<button class="btn small outline" style="margin-right:6px;" onclick="editOperator(\'' + o.id + '\')">Edit</button>' +
+      '<button class="btn small" style="background:var(--red);" onclick="deleteOperator(\'' + o.id + '\')">Delete</button>' +
+      '</td>' +
+      '</tr>';
+  }).join("");
+}
+
+function toggleRevealPassword(id) {
+  if (revealedOperatorIds.has(id)) revealedOperatorIds.delete(id);
+  else revealedOperatorIds.add(id);
+  renderOperatorTable(currentOperatorRows);
+}
+
+function onOperatorSearchInput() {
+  clearTimeout(operatorSearchTimer);
+  const term = document.getElementById("operatorSearchInput").value;
+  operatorSearchTimer = setTimeout(() => loadOperators(term), 350); // debounce
+}
+
+function editOperator(id) {
+  const o = currentOperatorRows.find(r => String(r.id) === String(id));
+  if (!o) return;
+  document.getElementById("operatorFormTitle").textContent = "Edit Operator";
+  document.getElementById("operatorEditId").value = o.id;
+  document.getElementById("operatorFormName").value = o.name;
+  document.getElementById("operatorFormMobile").value = o.mobile;
+  document.getElementById("operatorFormPass").value = o.pass;
+  document.getElementById("operatorFormXicId").value = o.XIC_ID;
+  document.getElementById("operatorSaveBtn").textContent = "Save Changes";
+  document.getElementById("operatorCancelEditBtn").style.display = "inline-block";
+  document.getElementById("operatorFormMsg").innerHTML = "";
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+function resetOperatorForm() {
+  document.getElementById("operatorFormTitle").textContent = "Add New Operator";
+  document.getElementById("operatorEditId").value = "";
+  document.getElementById("operatorFormName").value = "";
+  document.getElementById("operatorFormMobile").value = "";
+  document.getElementById("operatorFormPass").value = "";
+  document.getElementById("operatorFormXicId").value = "";
+  document.getElementById("operatorSaveBtn").textContent = "Save Operator";
+  document.getElementById("operatorCancelEditBtn").style.display = "none";
+  document.getElementById("operatorFormMsg").innerHTML = "";
+}
+
+async function saveOperator() {
+  const msgBox = "operatorFormMsg";
+  document.getElementById(msgBox).innerHTML = "";
+
+  const editId = document.getElementById("operatorEditId").value;
+  const name = document.getElementById("operatorFormName").value.trim();
+  const mobile = document.getElementById("operatorFormMobile").value.trim();
+  const pass = document.getElementById("operatorFormPass").value.trim();
+  const xicIdRaw = document.getElementById("operatorFormXicId").value.trim();
+
+  if (!name) { showMsg(msgBox, "error", "Name is required."); return; }
+  if (!mobile) { showMsg(msgBox, "error", "Mobile Number is required."); return; }
+  if (!pass) { showMsg(msgBox, "error", "Password is required."); return; }
+  if (!xicIdRaw) { showMsg(msgBox, "error", "XIC_ID is required."); return; }
+  if (!/^-?\d+$/.test(xicIdRaw)) { showMsg(msgBox, "error", "XIC_ID must be a valid whole number."); return; }
+  const xicId = parseInt(xicIdRaw, 10);
+
+  const btn = document.getElementById("operatorSaveBtn");
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span>Saving...';
+
+  try {
+    // Duplicate checks (exclude the record being edited, if any)
+    const { data: dups, error: dupErr } = await sb.from("operator_login")
+      .select("id, mobile, XIC_ID")
+      .or("mobile.eq." + mobile + ",XIC_ID.eq." + xicId);
+    if (dupErr) throw dupErr;
+
+    const conflict = (dups || []).find(d => String(d.id) !== String(editId));
+    if (conflict) {
+      const reason = conflict.XIC_ID === xicId
+        ? "An operator with this XIC_ID already exists."
+        : "An operator with this Mobile Number already exists.";
+      showMsg(msgBox, "error", reason);
+      btn.disabled = false;
+      btn.textContent = editId ? "Save Changes" : "Save Operator";
+      return;
+    }
+
+    if (editId) {
+      // id and created_at are never touched on edit
+      const { error: updErr } = await sb.from("operator_login")
+        .update({ name, mobile, pass, XIC_ID: xicId })
+        .eq("id", editId);
+      if (updErr) throw updErr;
+      showMsg(msgBox, "success", "Operator updated successfully.");
+    } else {
+      // id (uuid) and created_at are left out — the database generates them
+      const { error: insErr } = await sb.from("operator_login")
+        .insert({ name, mobile, pass, XIC_ID: xicId });
+      if (insErr) throw insErr;
+      showMsg(msgBox, "success", "Operator added successfully.");
+    }
+
+    resetOperatorForm();
+    document.getElementById(msgBox).innerHTML =
+      '<div class="msg success">Operator ' + (editId ? "updated" : "added") + ' successfully.</div>';
+    loadOperators(document.getElementById("operatorSearchInput").value);
+  } catch (err) {
+    console.error(err);
+    showMsg(msgBox, "error", "Error: " + (err.message || "could not save operator."));
+  }
+  btn.disabled = false;
+  btn.textContent = document.getElementById("operatorCancelEditBtn").style.display === "inline-block" ? "Save Changes" : "Save Operator";
+}
+
+async function deleteOperator(id) {
+  const o = currentOperatorRows.find(r => String(r.id) === String(id));
+  const label = o ? (o.name + " (" + o.mobile + ")") : id;
+  const ok = confirm("Are you sure you want to delete this operator?\n\n" + label);
+  if (!ok) return;
+
+  try {
+    const { error } = await sb.from("operator_login").delete().eq("id", id);
+    if (error) throw error;
+    loadOperators(document.getElementById("operatorSearchInput").value);
+  } catch (err) {
+    console.error(err);
+    alert("Error deleting operator: " + (err.message || ""));
+  }
+}
+/* ============ DISPENSER METER READING ============ */
+let dispenserPage = 1;
+const DISPENSER_PAGE_SIZE = 10;
+let dispenserSortCol = "date";
+let dispenserSortAsc = false;
+let editingDispenserRow = null; // set when "Edit" is clicked on a row
+
+function toggleDispenserForm(show) {
+  const el = document.getElementById("dispenserForm");
+  const shouldShow = show !== undefined ? show : el.classList.contains("hidden");
+  el.classList.toggle("hidden", !shouldShow);
+  if (shouldShow && !editingDispenserRow) {
+    document.getElementById("dispenserFormDate").value = new Date().toISOString().slice(0, 10);
+    document.getElementById("dispenserFormReading").value = "";
+  }
+  document.getElementById("dispenserFormMsg").innerHTML = "";
+  if (!shouldShow) editingDispenserRow = null;
+}
+
+function editDispenserReading(id, date, reading) {
+  editingDispenserRow = id;
+  document.getElementById("dispenserFormDate").value = date;
+  document.getElementById("dispenserFormReading").value = reading;
+  toggleDispenserForm(true);
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+async function saveDispenserReading() {
+  const msgBox = "dispenserFormMsg";
+  document.getElementById(msgBox).innerHTML = "";
+
+  const date = document.getElementById("dispenserFormDate").value;
+  const readingRaw = document.getElementById("dispenserFormReading").value.trim();
+
+  if (!date) { showMsg(msgBox, "error", "Date is required."); return; }
+  if (!readingRaw) { showMsg(msgBox, "error", "Meter reading is required."); return; }
+  const reading = parseFloat(readingRaw);
+  if (isNaN(reading) || reading < 0) { showMsg(msgBox, "error", "Please enter a valid meter reading."); return; }
+
+  const btn = document.getElementById("dispenserSaveBtn");
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span>Saving...';
+
+  try {
+    // Check whether a record already exists for this date — if so we
+    // UPDATE that one record (the correction), leaving every other
+    // date's historical row completely untouched.
+    const { data: existing, error: checkErr } = await sb.from("dispenser_meter_reading")
+      .select("id").eq("date", date).maybeSingle();
+    if (checkErr) throw checkErr;
+
+    if (existing) {
+      const { error: updErr } = await sb.from("dispenser_meter_reading")
+        .update({ last_meter_reading: reading, updated_at: new Date().toISOString() })
+        .eq("id", existing.id);
+      if (updErr) throw updErr;
+    } else {
+      const { error: insErr } = await sb.from("dispenser_meter_reading")
+        .insert({ date, last_meter_reading: reading, updated_at: new Date().toISOString() });
+      if (insErr) throw insErr;
+    }
+
+    toggleDispenserForm(false);
+    showMsg("dispenserTableMsg", "success", "Meter reading saved successfully for " + date + ".");
+    loadDispenserTable(1);
+  } catch (err) {
+    console.error(err);
+    showMsg(msgBox, "error", "Error: " + (err.message || "could not save reading."));
+    btn.disabled = false;
+    btn.textContent = "Save Reading";
+    return;
+  }
+  btn.disabled = false;
+  btn.textContent = "Save Reading";
+}
+
+function clearDispenserFilters() {
+  document.getElementById("dmrFilterFrom").value = "";
+  document.getElementById("dmrFilterTo").value = "";
+  loadDispenserTable(1);
+}
+
+function sortDispenserData(col) {
+  if (dispenserSortCol === col) dispenserSortAsc = !dispenserSortAsc;
+  else { dispenserSortCol = col; dispenserSortAsc = false; }
+  ["date", "last_meter_reading", "updated_at"].forEach(c => {
+    document.getElementById("darrow_" + c).textContent = (c === dispenserSortCol) ? (dispenserSortAsc ? "▲" : "▼") : "";
+  });
+  loadDispenserTable(1);
+}
+
+function changeDispenserPage(delta) {
+  loadDispenserTable(dispenserPage + delta);
+}
+
+let currentDispenserRows = [];
+
+async function loadDispenserTable(page) {
+  dispenserPage = Math.max(1, page);
+  const tbody = document.querySelector("#dispenserTable tbody");
+  document.getElementById("dispenserTableMsg").innerHTML = "";
+  tbody.innerHTML = '<tr><td colspan="4" style="color:var(--muted);">Loading...</td></tr>';
+
+  const fromDate = document.getElementById("dmrFilterFrom").value;
+  const toDate = document.getElementById("dmrFilterTo").value;
+
+  try {
+    let query = sb.from("dispenser_meter_reading")
+      .select("id, date, last_meter_reading, updated_at", { count: "exact" });
+
+    if (fromDate) query = query.gte("date", fromDate);
+    if (toDate) query = query.lte("date", toDate);
+
+    query = query.order(dispenserSortCol, { ascending: dispenserSortAsc });
+
+    const from = (dispenserPage - 1) * DISPENSER_PAGE_SIZE;
+    const to = from + DISPENSER_PAGE_SIZE - 1;
+    query = query.range(from, to);
+
+    const { data, error, count } = await query;
+    if (error) throw error;
+
+    currentDispenserRows = data || [];
+
+    if (currentDispenserRows.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="4" style="color:var(--muted);">No dispenser meter readings found.</td></tr>';
+    } else {
+      tbody.innerHTML = currentDispenserRows.map(r =>
+        '<tr>' +
+        '<td>' + new Date(r.date + "T00:00:00").toLocaleDateString() + '</td>' +
+        '<td>' + Number(r.last_meter_reading).toLocaleString() + '</td>' +
+        '<td>' + (r.updated_at ? new Date(r.updated_at).toLocaleString() : "-") + '</td>' +
+        '<td><button class="btn small outline" onclick="editDispenserReading(\'' + r.id + '\', \'' + r.date + '\', ' + r.last_meter_reading + ')">Edit</button></td>' +
+        '</tr>'
+      ).join("");
+    }
+
+    const totalPages = Math.max(1, Math.ceil((count || 0) / DISPENSER_PAGE_SIZE));
+    document.getElementById("dispenserPageInfo").textContent =
+      (count || 0) + " record(s) — page " + dispenserPage + " of " + totalPages;
+    document.getElementById("dispenserPrevBtn").disabled = dispenserPage <= 1;
+    document.getElementById("dispenserNextBtn").disabled = dispenserPage >= totalPages;
+  } catch (err) {
+    console.error(err);
+    tbody.innerHTML = "";
+    showMsg("dispenserTableMsg", "error", "Error loading dispenser meter readings.");
+  }
+}
+</script>
+</body>
+</html>
