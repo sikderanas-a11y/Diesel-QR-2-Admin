@@ -140,6 +140,45 @@
     .a4-page{margin:0;box-shadow:none;page-break-after:always;page-break-inside:avoid;}
     .a4-page:last-child{page-break-after:auto;}
   }
+
+  /* ---- Vehicle vs Date Heat Map ---- */
+  .hm-toolbar{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px;align-items:center;}
+  .hm-toolbar button{padding:8px 14px;font-size:13px;}
+  .hm-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin:14px 0;}
+  .hm-card{background:var(--green-light);border-radius:10px;padding:14px;}
+  .hm-card .hv{font-size:20px;font-weight:800;color:var(--green-dark);word-break:break-word;}
+  .hm-card .hs{font-size:12px;color:var(--muted);margin-top:2px;}
+  .hm-card .hl{font-size:12px;font-weight:700;color:var(--muted);margin-bottom:4px;}
+  .hm-controls{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin-bottom:10px;}
+  .hm-controls .field{margin-bottom:0;}
+  .hm-wrap{overflow:auto;max-height:70vh;border:1px solid var(--border);border-radius:10px;background:#fff;}
+  table.hm{border-collapse:separate;border-spacing:0;font-size:12px;width:max-content;min-width:100%;}
+  table.hm th, table.hm td{padding:6px 8px;border-right:1px solid #eceef8;border-bottom:1px solid #eceef8;text-align:center;white-space:nowrap;min-width:46px;}
+  table.hm thead th{position:sticky;top:0;z-index:3;background:var(--green-light);color:var(--green-dark);}
+  table.hm .hm-name{position:sticky;left:0;z-index:2;background:#fff;text-align:left;min-width:150px;max-width:220px;overflow:hidden;text-overflow:ellipsis;font-weight:700;color:var(--text);}
+  table.hm thead th.hm-name{z-index:5;background:var(--green-light);color:var(--green-dark);}
+  table.hm .hm-total{position:sticky;right:0;z-index:2;background:var(--green-light);font-weight:800;color:var(--green-dark);min-width:90px;}
+  table.hm thead th.hm-total{z-index:5;}
+  table.hm tfoot td{position:sticky;bottom:0;z-index:3;background:var(--green-light);font-weight:800;color:var(--green-dark);}
+  table.hm tfoot td.hm-name{z-index:6;}
+  table.hm tfoot td.hm-total{z-index:6;}
+  table.hm td.hm-cell{cursor:default;font-weight:600;color:#222;}
+  table.hm td.hm-cell:hover{outline:2px solid var(--green-dark);outline-offset:-2px;}
+  .hm-legend{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:12px;font-size:12px;color:var(--muted);}
+  .hm-legend .bar{height:14px;width:220px;max-width:100%;border-radius:7px;border:1px solid var(--border);}
+  .hm-legend .zero{display:inline-block;width:14px;height:14px;border:1px solid var(--border);background:#fff;border-radius:3px;vertical-align:middle;}
+  #hmTooltip{position:fixed;z-index:9999;pointer-events:none;display:none;background:#1f2340;color:#fff;border-radius:8px;padding:9px 12px;font-size:12px;line-height:1.5;box-shadow:0 4px 14px rgba(0,0,0,.25);max-width:260px;}
+  table.hm td.hm-cell{cursor:pointer;}
+  #hmEditOverlay{position:fixed;inset:0;z-index:10000;background:rgba(20,22,45,.55);display:none;align-items:center;justify-content:center;padding:16px;}
+  #hmEditOverlay.open{display:flex;}
+  #hmEditBox{background:#fff;border-radius:12px;padding:20px;width:100%;max-width:460px;max-height:90vh;overflow:auto;box-shadow:0 10px 30px rgba(0,0,0,.3);}
+  #hmEditBox .hm-e-row{display:flex;align-items:center;gap:10px;margin-bottom:10px;}
+  #hmEditBox .hm-e-row .t{flex:0 0 90px;font-size:13px;color:var(--muted);font-weight:600;}
+  #hmEditBox .hm-e-row input{flex:1;padding:9px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:14px;min-width:0;}
+  #hmEditBox .hm-e-row input.changed{border-color:var(--green-dark);background:#fbf3fc;}
+  #hmEditBox .hm-e-actions{display:flex;gap:8px;margin-top:14px;flex-wrap:wrap;}
+  #hmEditBox .hm-e-actions button{width:auto;padding:10px 20px;}
+  @media(max-width:700px){ .hm-wrap{max-height:60vh;} table.hm .hm-name{min-width:110px;max-width:130px;} }
 </style>
 </head>
 <body>
@@ -171,6 +210,7 @@
   <nav>
     <h1><img src="logo.png" alt="Logo" onerror="this.style.display='none'"> Diesel Tracker Admin</h1>
     <div class="navitem active" data-page="dashboard" onclick="switchPage('dashboard')">Dashboard</div>
+    <div class="navitem" data-page="heatmap" onclick="switchPage('heatmap')">Vehicle vs Date Heat Map</div>
     <div class="navitem" data-page="create" onclick="switchPage('create')">Create &amp; Generate QR Codes</div>
     <div class="navitem" data-page="report" onclick="switchPage('report')">Download Report</div>
     <div class="navitem" data-page="drivers" onclick="switchPage('drivers')">Driver Information</div>
@@ -297,6 +337,75 @@
         <button class="btn" id="dieselEditSaveBtn" onclick="saveDieselEdit()">Save Changes</button>
         <button class="btn outline" onclick="cancelDieselEdit()">Cancel</button>
       </div>
+    </div>
+
+    <!-- ================= VEHICLE VS DATE HEAT MAP ================= -->
+    <div class="page" id="page-heatmap">
+      <h2 class="page-title">Vehicle vs Date Heat Map</h2>
+      <p class="page-sub">Daily diesel consumption (LTR) for every vehicle across the selected dates.</p>
+      <!-- ============ VEHICLE VS DATE HEAT MAP ============ -->
+      <div class="card" id="hmCard">
+        <strong style="display:block;margin-bottom:12px;color:var(--green-dark);">Vehicle vs Date Heat Map</strong>
+
+        <div class="filter-row" style="max-width:500px;">
+          <div class="field"><label>Start Date</label><input type="date" id="hmFrom"></div>
+          <div class="field"><label>End Date</label><input type="date" id="hmTo"></div>
+        </div>
+        <div class="hm-toolbar">
+          <button class="btn outline" onclick="hmQuick('today')">Today</button>
+          <button class="btn outline" onclick="hmQuick('7d')">Last 7 Days</button>
+          <button class="btn outline" onclick="hmQuick('month')">This Month</button>
+          <button class="btn outline" onclick="hmQuick('lastmonth')">Last Month</button>
+          <button class="btn" style="width:auto;" onclick="hmApply()">Apply Filter</button>
+          <button class="btn outline" onclick="hmRefresh()">Refresh</button>
+          <button class="btn outline" onclick="hmExportExcel()">&#11015; Excel</button>
+          <button class="btn outline" id="hmPdfBtn" onclick="hmExportPdf()">&#11015; PDF</button>
+        </div>
+
+        <div id="hmMsg"></div>
+        <div class="hm-cards" id="hmCards"></div>
+
+        <div class="hm-controls">
+          <div class="field"><label>Search Vehicle</label><input type="text" id="hmSearch" placeholder="Vehicle name or code" oninput="hmRender()"></div>
+          <div class="field"><label>Sort By</label>
+            <select id="hmSort" onchange="hmRender()">
+              <option value="name">Vehicle Name</option>
+              <option value="total">Total Consumption</option>
+              <option value="avg">Average Daily Consumption</option>
+            </select>
+          </div>
+          <div class="field"><label>Order</label>
+            <select id="hmOrder" onchange="hmRender()">
+              <option value="asc">Ascending</option>
+              <option value="desc">Descending</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="hm-wrap" id="hmWrap"><table class="hm" id="hmTable"></table></div>
+
+        <div class="hm-legend" id="hmLegend">
+          <span><span class="zero"></span> 0</span>
+          <span id="hmLegendMin">Low</span>
+          <div class="bar" id="hmLegendBar"></div>
+          <span id="hmLegendMax">High</span>
+          <span>(green → yellow → orange → red, scaled to the highest cell shown)</span>
+        </div>
+      </div>
+      <div id="hmTooltip"></div>
+      <div id="hmEditOverlay" onclick="if(event.target===this)hmCloseEdit()">
+        <div id="hmEditBox">
+          <strong style="display:block;margin-bottom:4px;color:var(--green-dark);font-size:16px;">Edit Diesel Consumption</strong>
+          <div id="hmEditInfo" style="font-size:13px;color:var(--muted);margin-bottom:14px;"></div>
+          <div id="hmEditMsg"></div>
+          <div id="hmEditRows"></div>
+          <div class="hm-e-actions">
+            <button class="btn" id="hmEditSaveBtn" onclick="hmSaveEdit()">Save Changes</button>
+            <button class="btn outline" onclick="hmCloseEdit()">Cancel</button>
+          </div>
+        </div>
+      </div>
+
     </div>
 
     <!-- ================= CREATE NEW QR CODE ================= -->
@@ -702,6 +811,7 @@ function switchPage(name) {
   document.getElementById("page-" + name).classList.add("active");
   document.querySelector('.navitem[data-page="' + name + '"]').classList.add("active");
   if (name === "dashboard") loadDashboard();
+  if (name === "heatmap") hmInit();
   if (name === "create") loadVehiclesInto("generate");
   if (name === "report") loadVehiclesInto("report");
   if (name === "drivers") loadDrivers();
@@ -893,6 +1003,562 @@ async function loadDashboard() {
 
   dieselPage = 1;
   loadDieselDataTable(1);
+}
+
+/* ============ VEHICLE VS DATE HEAT MAP ============ */
+let hmData = null;       // {days:[keys], vehicles:[{code,name,daily:{},counts:{},total,avg,registered}], from, to}
+let hmInitialised = false;
+let hmView = null;
+let hmLoadToken = 0;
+const HM_MAX_DAYS = 366;
+const HM_PAGE = 1000;
+
+function hmEsc(s) {
+  return String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+function hmFmt(n) {
+  return Number(Number(n || 0).toFixed(2)).toLocaleString(undefined, { maximumFractionDigits: 2 });
+}
+// Local calendar-date key (same local-time convention as the rest of this app)
+function hmDateKey(d) {
+  return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+}
+function hmParseKey(k) { const p = k.split("-"); return new Date(+p[0], +p[1] - 1, +p[2]); }
+function hmLabel(k) {
+  return hmParseKey(k).toLocaleDateString("en-GB", { day: "2-digit", month: "short" });
+}
+function hmLongLabel(k) {
+  return hmParseKey(k).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+}
+
+function hmInit() {
+  if (hmInitialised) return;
+  hmInitialised = true;
+  hmQuick("month");
+  const wrap = document.getElementById("hmWrap");
+  const tip = document.getElementById("hmTooltip");
+  wrap.addEventListener("mousemove", e => {
+    const td = e.target.closest("td.hm-cell");
+    if (!td) { tip.style.display = "none"; return; }
+    tip.innerHTML =
+      "<b>" + hmEsc(td.dataset.name) + "</b><br>" +
+      "Code: " + hmEsc(td.dataset.code) + "<br>" +
+      "Date: " + hmEsc(td.dataset.date) + "<br>" +
+      "Diesel: " + hmEsc(td.dataset.qty) + " LTR<br>" +
+      "Entries: " + hmEsc(td.dataset.cnt);
+    tip.style.display = "block";
+    const w = tip.offsetWidth, h = tip.offsetHeight;
+    let x = e.clientX + 14, y = e.clientY + 14;
+    if (x + w > window.innerWidth - 6) x = e.clientX - w - 14;
+    if (y + h > window.innerHeight - 6) y = e.clientY - h - 14;
+    tip.style.left = Math.max(4, x) + "px";
+    tip.style.top = Math.max(4, y) + "px";
+  });
+  wrap.addEventListener("mouseleave", () => { tip.style.display = "none"; });
+  wrap.addEventListener("scroll", () => { tip.style.display = "none"; });
+  wrap.addEventListener("click", e => {
+    const td = e.target.closest("td.hm-cell");
+    if (!td) return;
+    tip.style.display = "none";
+    hmOpenEdit(td.dataset.code, td.dataset.key);
+  });
+  document.addEventListener("keydown", e => { if (e.key === "Escape") hmCloseEdit(); });
+}
+
+function hmQuick(kind) {
+  const now = new Date();
+  let from, to;
+  if (kind === "today") { from = to = new Date(now.getFullYear(), now.getMonth(), now.getDate()); }
+  else if (kind === "7d") { to = new Date(now.getFullYear(), now.getMonth(), now.getDate()); from = new Date(to); from.setDate(from.getDate() - 6); }
+  else if (kind === "lastmonth") { from = new Date(now.getFullYear(), now.getMonth() - 1, 1); to = new Date(now.getFullYear(), now.getMonth(), 0); }
+  else { from = new Date(now.getFullYear(), now.getMonth(), 1); to = new Date(now.getFullYear(), now.getMonth() + 1, 0); }
+  document.getElementById("hmFrom").value = hmDateKey(from);
+  document.getElementById("hmTo").value = hmDateKey(to);
+  hmApply();
+}
+
+function hmRefresh() { hmApply(); }
+
+async function hmFetchAll(table, columns, orderCols, applyFilters) {
+  const out = [];
+  for (let from = 0; ; from += HM_PAGE) {
+    let q = sb.from(table).select(columns);
+    if (applyFilters) q = applyFilters(q);
+    orderCols.forEach(c => { q = q.order(c, { ascending: true }); });
+    const { data, error } = await q.range(from, from + HM_PAGE - 1);
+    if (error) throw error;
+    if (!data || data.length === 0) break;
+    out.push(...data);
+    if (data.length < HM_PAGE) break;
+  }
+  return out;
+}
+
+async function hmApply() {
+  const fromV = document.getElementById("hmFrom").value;
+  const toV = document.getElementById("hmTo").value;
+  const msg = document.getElementById("hmMsg");
+  msg.innerHTML = "";
+  if (!fromV || !toV) { showMsg("hmMsg", "error", "Please select both a start and an end date."); return; }
+  const fromD = hmParseKey(fromV), toD = hmParseKey(toV);
+  if (fromD > toD) { showMsg("hmMsg", "error", "Start date cannot be after end date."); return; }
+  const nDays = Math.round((toD - fromD) / 86400000) + 1;
+  if (nDays > HM_MAX_DAYS) { showMsg("hmMsg", "error", "Please select a range of at most " + HM_MAX_DAYS + " days."); return; }
+
+  const token = ++hmLoadToken;
+  showMsg("hmMsg", "info", "Loading heat map data...");
+  try {
+    const startISO = new Date(fromD.getFullYear(), fromD.getMonth(), fromD.getDate(), 0, 0, 0, 0).toISOString();
+    const endExclusive = new Date(toD.getFullYear(), toD.getMonth(), toD.getDate() + 1, 0, 0, 0, 0).toISOString();
+
+    const [masterRows, dieselRows] = await Promise.all([
+      hmFetchAll("master", "code, vehicle_name", ["code"]),
+      hmFetchAll("diesel_data", "id, code, vehicle_name, entry_datetime, quantity", ["entry_datetime", "id"],
+        q => q.gte("entry_datetime", startISO).lt("entry_datetime", endExclusive))
+    ]);
+    if (token !== hmLoadToken) return; // a newer request superseded this one
+
+    const days = [];
+    for (let i = 0; i < nDays; i++) { const d = new Date(fromD); d.setDate(d.getDate() + i); days.push(hmDateKey(d)); }
+    const dayIndex = new Set(days);
+
+    const map = new Map();
+    const ensure = (code, name, registered) => {
+      if (!map.has(code)) map.set(code, { code, name: name || code, daily: {}, counts: {}, entries: {}, total: 0, avg: 0, registered });
+      return map.get(code);
+    };
+    masterRows.forEach(m => { if (m.code != null) ensure(String(m.code), m.vehicle_name, true); });
+
+    const seen = new Set();
+    dieselRows.forEach(r => {
+      if (r.id != null) { if (seen.has(r.id)) return; seen.add(r.id); }
+      if (r.code == null || !r.entry_datetime) return;
+      const dt = new Date(r.entry_datetime);
+      if (isNaN(dt)) return;
+      const key = hmDateKey(dt);
+      if (!dayIndex.has(key)) return;
+      const q = parseFloat(r.quantity);
+      const qty = isFinite(q) ? q : 0;
+      const v = ensure(String(r.code), r.vehicle_name, false);
+      v.daily[key] = (v.daily[key] || 0) + qty;
+      v.counts[key] = (v.counts[key] || 0) + 1;
+      (v.entries[key] = v.entries[key] || []).push({ id: r.id, entry_datetime: r.entry_datetime, quantity: qty });
+    });
+
+    map.forEach(v => {
+      v.total = days.reduce((s, k) => s + (v.daily[k] || 0), 0);
+      v.avg = v.total / nDays;
+    });
+
+    hmData = { days, vehicles: Array.from(map.values()), from: fromV, to: toV };
+    msg.innerHTML = "";
+    hmRender();
+  } catch (err) {
+    console.error(err);
+    if (token === hmLoadToken) showMsg("hmMsg", "error", "Error loading heat map data: " + (err.message || "please try again."));
+  }
+}
+
+// Value -> colour: 0 white; then green -> yellow -> orange -> red by ratio to max
+function hmColor(v, max) {
+  if (!v || v <= 0 || !max) return "#ffffff";
+  const r = Math.min(1, v / max);
+  const hue = 120 - 120 * r;            // 120 (green) -> 0 (red)
+  const light = 82 - 32 * r;            // lighter for low, stronger for high
+  return "hsl(" + hue.toFixed(0) + ",75%," + light.toFixed(0) + "%)";
+}
+
+function hmRender() {
+  if (!hmData) return;
+  const { days, vehicles } = hmData;
+  const nDays = days.length;
+  const term = document.getElementById("hmSearch").value.trim().toLowerCase();
+  const sortBy = document.getElementById("hmSort").value;
+  const dir = document.getElementById("hmOrder").value === "desc" ? -1 : 1;
+
+  // ---- Summary cards (whole selected date range, all vehicles) ----
+  const dayTotalsAll = {};
+  let grandAll = 0, withEntries = 0, topV = null;
+  vehicles.forEach(v => {
+    if (Object.keys(v.counts).length > 0) withEntries++;
+    grandAll += v.total;
+    if (v.total > 0 && (!topV || v.total > topV.total)) topV = v;
+    days.forEach(k => { dayTotalsAll[k] = (dayTotalsAll[k] || 0) + (v.daily[k] || 0); });
+  });
+  let topD = null;
+  days.forEach(k => { if (dayTotalsAll[k] > 0 && (!topD || dayTotalsAll[k] > dayTotalsAll[topD])) topD = k; });
+  document.getElementById("hmCards").innerHTML =
+    '<div class="hm-card"><div class="hl">Total Diesel Consumption</div><div class="hv">' + hmFmt(grandAll) + ' LTR</div></div>' +
+    '<div class="hm-card"><div class="hl">Vehicles with Diesel Entries</div><div class="hv">' + withEntries + '</div><div class="hs">of ' + vehicles.length + ' vehicles</div></div>' +
+    '<div class="hm-card"><div class="hl">Average Daily Consumption</div><div class="hv">' + hmFmt(grandAll / nDays) + ' LTR</div><div class="hs">over ' + nDays + ' day' + (nDays > 1 ? "s" : "") + '</div></div>' +
+    '<div class="hm-card"><div class="hl">Highest-Consumption Vehicle</div><div class="hv">' + (topV ? hmEsc(topV.name) : "–") + '</div><div class="hs">' + (topV ? hmFmt(topV.total) + " LTR" : "No data") + '</div></div>' +
+    '<div class="hm-card"><div class="hl">Highest-Consumption Date</div><div class="hv">' + (topD ? hmLongLabel(topD) : "–") + '</div><div class="hs">' + (topD ? hmFmt(dayTotalsAll[topD]) + " LTR" : "No data") + '</div></div>';
+
+  // ---- Search + sort ----
+  let rows = vehicles.filter(v => !term || String(v.name).toLowerCase().includes(term) || String(v.code).toLowerCase().includes(term));
+  rows.sort((a, b) => {
+    let c;
+    if (sortBy === "total") c = a.total - b.total;
+    else if (sortBy === "avg") c = a.avg - b.avg;
+    else c = String(a.name).localeCompare(String(b.name), undefined, { numeric: true, sensitivity: "base" });
+    if (c === 0) c = String(a.name).localeCompare(String(b.name), undefined, { numeric: true });
+    return c * dir;
+  });
+
+  // ---- Colour scale based on displayed cells ----
+  let max = 0;
+  rows.forEach(v => days.forEach(k => { const x = v.daily[k] || 0; if (x > max) max = x; }));
+  document.getElementById("hmLegendBar").style.background =
+    "linear-gradient(to right," + [0.02, .25, .5, .75, 1].map(r => hmColor(r, 1)).join(",") + ")";
+  document.getElementById("hmLegendMin").textContent = "Low";
+  document.getElementById("hmLegendMax").textContent = "Very high (" + hmFmt(max) + " LTR)";
+
+  // ---- Table ----
+  const colTotals = {};
+  let grand = 0;
+  let h = '<thead><tr><th class="hm-name">Vehicle Name</th>';
+  days.forEach(k => { h += "<th>" + hmLabel(k) + "</th>"; });
+  h += '<th class="hm-total">Total (LTR)</th></tr></thead><tbody>';
+  if (rows.length === 0) {
+    h += '<tr><td class="hm-name" colspan="' + (nDays + 2) + '" style="text-align:left;color:var(--muted);">No vehicles match your search.</td></tr>';
+  }
+  rows.forEach(v => {
+    h += '<tr><td class="hm-name" title="' + hmEsc(v.name) + " (" + hmEsc(v.code) + ')">' + hmEsc(v.name) + "</td>";
+    days.forEach(k => {
+      const x = v.daily[k] || 0;
+      const n = v.counts[k] || 0;
+      colTotals[k] = (colTotals[k] || 0) + x;
+      h += '<td class="hm-cell" style="background:' + hmColor(x, max) + '" data-name="' + hmEsc(v.name) + '" data-code="' + hmEsc(v.code) +
+           '" data-key="' + k + '" data-date="' + hmLongLabel(k) + '" data-qty="' + hmFmt(x) + '" data-cnt="' + n + '">' + (x > 0 ? hmFmt(x) : "–") + "</td>";
+    });
+    grand += v.total;
+    h += '<td class="hm-total">' + hmFmt(v.total) + "</td></tr>";
+  });
+  h += '</tbody><tfoot><tr><td class="hm-name">Total Daily Consumption (LTR)</td>';
+  days.forEach(k => { h += "<td>" + hmFmt(colTotals[k] || 0) + "</td>"; });
+  h += '<td class="hm-total">' + hmFmt(grand) + "</td></tr></tfoot>";
+  hmView = { days, rows, max, colTotals, grand, nDays, from: hmData.from, to: hmData.to, search: term,
+    sum: { grandAll, withEntries, totalVehicles: vehicles.length, topV, topD, topDTotal: topD ? dayTotalsAll[topD] : 0 } };
+  document.getElementById("hmTable").innerHTML = h;
+}
+
+
+/* ---- Edit consumption from a heat map cell ---- */
+let hmEditCtx = null; // {code, key, entries:[{id, original}]}
+
+function hmOpenEdit(code, key) {
+  if (!hmData) return;
+  const v = hmData.vehicles.find(x => String(x.code) === String(code));
+  if (!v) return;
+  const list = (v.entries[key] || []).slice().sort((a, b) => new Date(a.entry_datetime) - new Date(b.entry_datetime));
+  document.getElementById("hmEditMsg").innerHTML = "";
+  document.getElementById("hmEditInfo").innerHTML = "<b>" + hmEsc(v.name) + "</b> (" + hmEsc(v.code) + ") &middot; " + hmLongLabel(key);
+  const rowsEl = document.getElementById("hmEditRows");
+  const saveBtn = document.getElementById("hmEditSaveBtn");
+  if (list.length === 0) {
+    hmEditCtx = null;
+    rowsEl.innerHTML = '<div class="msg info">There is no diesel entry for this vehicle on this date, so there is nothing to edit.</div>';
+    saveBtn.classList.add("hidden");
+  } else {
+    hmEditCtx = { code: String(v.code), key, entries: list.map(e => ({ id: e.id, original: e.quantity })) };
+    saveBtn.classList.remove("hidden");
+    rowsEl.innerHTML = list.map((e, i) =>
+      '<div class="hm-e-row"><div class="t">' + hmEsc(new Date(e.entry_datetime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })) +
+      '</div><input type="number" step="0.01" min="0" id="hmEditQty' + i + '" value="' + e.quantity + '" oninput="hmMarkChanged(' + i + ')"><span style="font-size:12px;color:var(--muted);">LTR</span></div>'
+    ).join("");
+  }
+  document.getElementById("hmEditOverlay").classList.add("open");
+}
+
+function hmMarkChanged(i) {
+  if (!hmEditCtx) return;
+  const inp = document.getElementById("hmEditQty" + i);
+  inp.classList.toggle("changed", parseFloat(inp.value) !== hmEditCtx.entries[i].original);
+}
+
+function hmCloseEdit() {
+  document.getElementById("hmEditOverlay").classList.remove("open");
+  hmEditCtx = null;
+}
+
+async function hmSaveEdit() {
+  if (!hmEditCtx) return;
+  const ctx = hmEditCtx;
+  const changes = [];
+  for (let i = 0; i < ctx.entries.length; i++) {
+    const val = parseFloat(document.getElementById("hmEditQty" + i).value);
+    if (isNaN(val) || val <= 0) { showMsg("hmEditMsg", "error", "Please enter a valid quantity greater than 0 for every entry."); return; }
+    if (val !== ctx.entries[i].original) changes.push({ id: ctx.entries[i].id, qty: val });
+  }
+  if (changes.length === 0) { showMsg("hmEditMsg", "info", "No changes to save."); return; }
+
+  const btn = document.getElementById("hmEditSaveBtn");
+  btn.disabled = true; btn.textContent = "Saving...";
+  document.getElementById("hmEditMsg").innerHTML = "";
+  try {
+    for (const c of changes) {
+      const { error } = await sb.from("diesel_data").update({ quantity: c.qty }).eq("id", c.id);
+      if (error) throw error;
+    }
+    await syncLatestDataForCode(ctx.code);
+
+    // Update local data and re-render in place (keeps filters, search, sort and scroll position)
+    const v = hmData.vehicles.find(x => String(x.code) === ctx.code);
+    const byId = new Map(changes.map(c => [c.id, c.qty]));
+    (v.entries[ctx.key] || []).forEach(e => { if (byId.has(e.id)) e.quantity = byId.get(e.id); });
+    v.daily[ctx.key] = (v.entries[ctx.key] || []).reduce((s, e) => s + e.quantity, 0);
+    v.total = hmData.days.reduce((s, k) => s + (v.daily[k] || 0), 0);
+    v.avg = v.total / hmData.days.length;
+    hmRender();
+    hmCloseEdit();
+    showMsg("hmMsg", "success", "Diesel consumption updated.");
+    setTimeout(() => { const m = document.getElementById("hmMsg"); if (m && m.textContent.includes("updated")) m.innerHTML = ""; }, 4000);
+  } catch (err) {
+    console.error(err);
+    showMsg("hmEditMsg", "error", "Error: " + (err.message || "could not save changes."));
+  }
+  btn.disabled = false; btn.textContent = "Save Changes";
+}
+
+
+/* ============ HEAT MAP EXPORT (Excel / PDF) ============ */
+const HM_BUCKETS = 20;
+function hmHslToRgb(h, sat, l) {
+  sat /= 100; l /= 100;
+  const k = n => (n + h / 30) % 12, a = sat * Math.min(l, 1 - l);
+  const f = n => l - a * Math.max(-1, Math.min(k(n) - 3, Math.min(9 - k(n), 1)));
+  return [Math.round(f(0) * 255), Math.round(f(8) * 255), Math.round(f(4) * 255)];
+}
+function hmRgbFor(v, max) {          // same scale as the on-screen heat map
+  if (!v || v <= 0 || !max) return [255, 255, 255];
+  const r = Math.min(1, v / max);
+  return hmHslToRgb(120 - 120 * r, 75, 82 - 32 * r);
+}
+function hmBucket(v, max) {          // 0 = no fill, 1..HM_BUCKETS
+  if (!v || v <= 0 || !max) return 0;
+  return Math.max(1, Math.min(HM_BUCKETS, Math.ceil((v / max) * HM_BUCKETS)));
+}
+const hmHex = rgb => rgb.map(x => x.toString(16).padStart(2, "0")).join("").toUpperCase();
+const hmNum = n => Math.round((n || 0) * 100) / 100;
+function hmFileBase() { return "Vehicle_vs_Date_Heat_Map_" + hmView.from + "_to_" + hmView.to; }
+function hmDownloadBlob(blob, name) {
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob); a.download = name;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+}
+function hmSummaryLines() {
+  const m = hmView.sum;
+  return [
+    ["Total Diesel Consumption (LTR)", hmFmt(m.grandAll)],
+    ["Vehicles with Diesel Entries", m.withEntries + " of " + m.totalVehicles],
+    ["Average Daily Consumption (LTR)", hmFmt(m.grandAll / hmView.nDays)],
+    ["Highest-Consumption Vehicle", m.topV ? m.topV.name + " (" + hmFmt(m.topV.total) + " LTR)" : "-"],
+    ["Highest-Consumption Date", m.topD ? hmLongLabel(m.topD) + " (" + hmFmt(m.topDTotal) + " LTR)" : "-"]
+  ];
+}
+function hmPeriodText() { return hmLongLabel(hmView.days[0]) + " to " + hmLongLabel(hmView.days[hmView.days.length - 1]) + " (" + hmView.nDays + " days)"; }
+
+/* ---- minimal .xlsx writer (no external library) ---- */
+const hmCrcTable = (() => { const t = []; for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; } return t; })();
+function hmCrc32(b) { let c = 0xFFFFFFFF; for (let i = 0; i < b.length; i++) c = hmCrcTable[(c ^ b[i]) & 255] ^ (c >>> 8); return (c ^ 0xFFFFFFFF) >>> 0; }
+function hmZip(files) {              // files: [{name, data(string)}], stored (no compression)
+  const enc = new TextEncoder(), parts = [], central = [];
+  let offset = 0;
+  files.forEach(f => {
+    const name = enc.encode(f.name), data = enc.encode(f.data), crc = hmCrc32(data);
+    const lh = new DataView(new ArrayBuffer(30));
+    lh.setUint32(0, 0x04034b50, true); lh.setUint16(4, 20, true); lh.setUint16(6, 0x0800, true); lh.setUint16(8, 0, true);
+    lh.setUint16(10, 0, true); lh.setUint16(12, 33, true); lh.setUint32(14, crc, true);
+    lh.setUint32(18, data.length, true); lh.setUint32(22, data.length, true); lh.setUint16(26, name.length, true); lh.setUint16(28, 0, true);
+    parts.push(new Uint8Array(lh.buffer), name, data);
+    const ch = new DataView(new ArrayBuffer(46));
+    ch.setUint32(0, 0x02014b50, true); ch.setUint16(4, 20, true); ch.setUint16(6, 20, true); ch.setUint16(8, 0x0800, true);
+    ch.setUint16(10, 0, true); ch.setUint16(12, 0, true); ch.setUint16(14, 33, true); ch.setUint32(16, crc, true);
+    ch.setUint32(20, data.length, true); ch.setUint32(24, data.length, true); ch.setUint16(28, name.length, true);
+    ch.setUint32(42, offset, true);
+    central.push(new Uint8Array(ch.buffer), name);
+    offset += 30 + name.length + data.length;
+  });
+  const cdSize = central.reduce((s, x) => s + x.length, 0);
+  const end = new DataView(new ArrayBuffer(22));
+  end.setUint32(0, 0x06054b50, true); end.setUint16(8, files.length, true); end.setUint16(10, files.length, true);
+  end.setUint32(12, cdSize, true); end.setUint32(16, offset, true);
+  return new Blob([...parts, ...central, new Uint8Array(end.buffer)], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+}
+const hmXml = t => String(t == null ? "" : t).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+function hmCol(n) { let s = ""; n++; while (n > 0) { const m = (n - 1) % 26; s = String.fromCharCode(65 + m) + s; n = Math.floor((n - 1) / 26); } return s; }
+
+function hmBuildXlsx() {
+  const v = hmView, nD = v.days.length;
+  // style ids
+  const S = { title: 1, head: 2, name: 3, zero: 4, bucket0: 5, total: 5 + HM_BUCKETS, label: 6 + HM_BUCKETS, text: 7 + HM_BUCKETS, footLabel: 8 + HM_BUCKETS, footNum: 9 + HM_BUCKETS };
+  let fills = '<fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill>' +
+    '<fill><patternFill patternType="solid"><fgColor rgb="FF3457C9"/></patternFill></fill>' +
+    '<fill><patternFill patternType="solid"><fgColor rgb="FFEEF1FB"/></patternFill></fill>';
+  for (let i = 1; i <= HM_BUCKETS; i++) fills += '<fill><patternFill patternType="solid"><fgColor rgb="FF' + hmHex(hmRgbFor(i / HM_BUCKETS, 1)) + '"/></patternFill></fill>';
+  const al = h => '<alignment horizontal="' + h + '" vertical="center"/>';
+  let xfs = '<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>' +
+    '<xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1"/>' +
+    '<xf numFmtId="0" fontId="2" fillId="2" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1">' + al("center") + '</xf>' +
+    '<xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyBorder="1" applyAlignment="1">' + al("left") + '</xf>' +
+    '<xf numFmtId="164" fontId="0" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyBorder="1" applyAlignment="1">' + al("center") + '</xf>';
+  for (let i = 1; i <= HM_BUCKETS; i++) xfs += '<xf numFmtId="164" fontId="0" fillId="' + (3 + i) + '" borderId="1" xfId="0" applyNumberFormat="1" applyFill="1" applyBorder="1" applyAlignment="1">' + al("center") + '</xf>';
+  xfs += '<xf numFmtId="164" fontId="3" fillId="3" borderId="1" xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1">' + al("center") + '</xf>' +
+    '<xf numFmtId="0" fontId="3" fillId="0" borderId="0" xfId="0" applyFont="1"/>' +
+    '<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>' +
+    '<xf numFmtId="0" fontId="3" fillId="3" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1">' + al("left") + '</xf>' +
+    '<xf numFmtId="164" fontId="3" fillId="3" borderId="1" xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1">' + al("center") + '</xf>';
+  const nXf = 10 + HM_BUCKETS;
+  const styles = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">' +
+    '<numFmts count="1"><numFmt numFmtId="164" formatCode="#,##0.00;-#,##0.00;&quot;-&quot;"/></numFmts>' +
+    '<fonts count="4"><font><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="14"/><color rgb="FF7A1E8C"/><name val="Calibri"/></font>' +
+    '<font><b/><sz val="11"/><color rgb="FFFFFFFF"/><name val="Calibri"/></font><font><b/><sz val="11"/><color rgb="FF7A1E8C"/><name val="Calibri"/></font></fonts>' +
+    '<fills count="' + (4 + HM_BUCKETS) + '">' + fills + '</fills>' +
+    '<borders count="2"><border><left/><right/><top/><bottom/><diagonal/></border><border>' +
+    ['left', 'right', 'top', 'bottom'].map(x => '<' + x + ' style="thin"><color rgb="FFDCDFEF"/></' + x + '>').join('') + '<diagonal/></border></borders>' +
+    '<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>' +
+    '<cellXfs count="' + nXf + '">' + xfs + '</cellXfs></styleSheet>';
+
+  const strC = (r, c, t, st) => '<c r="' + hmCol(c) + r + '" t="inlineStr" s="' + st + '"><is><t xml:space="preserve">' + hmXml(t) + '</t></is></c>';
+  const numC = (r, c, val, st, f) => '<c r="' + hmCol(c) + r + '" s="' + st + '">' + (f ? '<f>' + f + '</f>' : '') + '<v>' + val + '</v></c>';
+  const rowsXml = [];
+  const addRow = (r, cells) => rowsXml.push('<row r="' + r + '">' + cells.join('') + '</row>');
+
+  addRow(1, [strC(1, 0, "Vehicle vs Date Diesel Consumption Heat Map", S.title)]);
+  addRow(2, [strC(2, 0, "Period", S.label), strC(2, 1, hmPeriodText(), S.text)]);
+  addRow(3, [strC(3, 0, "Generated", S.label), strC(3, 1, new Date().toLocaleString(), S.text)]);
+  const sl = hmSummaryLines();
+  sl.forEach((l, i) => addRow(4 + i, [strC(4 + i, 0, l[0], S.label), strC(4 + i, 1, l[1], S.text)]));
+  const note = v.search ? 'Table filtered by search: "' + v.search + '" (table totals cover the vehicles shown; summary covers all vehicles)' : "";
+  if (note) addRow(9, [strC(9, 0, note, S.text)]);
+
+  const H = 11, first = H + 1, last = H + v.rows.length;
+  const c0 = 1, cT = 1 + nD, cA = 2 + nD;       // first date col, total col, avg col
+  const head = [strC(H, 0, "Vehicle Name", S.head)];
+  v.days.forEach((k, i) => head.push(strC(H, c0 + i, hmLabel(k), S.head)));
+  head.push(strC(H, cT, "Total (LTR)", S.head), strC(H, cA, "Avg Daily (LTR)", S.head));
+  addRow(H, head);
+  v.rows.forEach((veh, ri) => {
+    const r = first + ri, cells = [strC(r, 0, veh.name, S.name)];
+    v.days.forEach((k, i) => { const x = hmNum(veh.daily[k]); cells.push(numC(r, c0 + i, x, (hmBucket(x, v.max) ? S.bucket0 + hmBucket(x, v.max) - 1 : S.zero))); });
+    cells.push(numC(r, cT, hmNum(veh.total), S.total, "SUM(" + hmCol(c0) + r + ":" + hmCol(c0 + nD - 1) + r + ")"));
+    cells.push(numC(r, cA, hmNum(veh.avg), S.total, hmCol(cT) + r + "/" + nD));
+    addRow(r, cells);
+  });
+  const fr = last + 1, foot = [strC(fr, 0, "Total Daily Consumption (LTR)", S.footLabel)];
+  v.days.forEach((k, i) => foot.push(v.rows.length ? numC(fr, c0 + i, hmNum(v.colTotals[k]), S.footNum, "SUM(" + hmCol(c0 + i) + first + ":" + hmCol(c0 + i) + last + ")") : numC(fr, c0 + i, 0, S.footNum)));
+  foot.push(v.rows.length ? numC(fr, cT, hmNum(v.grand), S.footNum, "SUM(" + hmCol(cT) + first + ":" + hmCol(cT) + last + ")") : numC(fr, cT, 0, S.footNum));
+  foot.push(numC(fr, cA, hmNum(v.grand / nD), S.footNum, hmCol(cT) + fr + "/" + nD));
+  addRow(fr, foot);
+
+  const cols = '<cols><col min="1" max="1" width="34" customWidth="1"/><col min="2" max="' + (1 + nD) + '" width="9" customWidth="1"/><col min="' + (2 + nD) + '" max="' + (3 + nD) + '" width="16" customWidth="1"/></cols>';
+  const sheet = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">' +
+    '<sheetViews><sheetView workbookViewId="0" showGridLines="0"><pane xSplit="1" ySplit="' + H + '" topLeftCell="B' + (H + 1) + '" activePane="bottomRight" state="frozen"/></sheetView></sheetViews>' +
+    '<sheetFormatPr defaultRowHeight="15"/>' + cols + '<sheetData>' + rowsXml.join('') + '</sheetData>' +
+    '<pageSetup orientation="landscape" fitToWidth="1" fitToHeight="0"/></worksheet>';
+
+  const ns = 'xmlns="http://schemas.openxmlformats.org/package/2006/relationships"';
+  return hmZip([
+    { name: "[Content_Types].xml", data: '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/></Types>' },
+    { name: "_rels/.rels", data: '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships ' + ns + '><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>' },
+    { name: "xl/workbook.xml", data: '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="Heat Map" sheetId="1" r:id="rId1"/></sheets></workbook>' },
+    { name: "xl/_rels/workbook.xml.rels", data: '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships ' + ns + '><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>' },
+    { name: "xl/styles.xml", data: styles },
+    { name: "xl/worksheets/sheet1.xml", data: sheet }
+  ]);
+}
+
+function hmExportExcel() {
+  if (!hmView || !hmView.rows) { showMsg("hmMsg", "error", "Load the heat map first, then export."); return; }
+  try { hmDownloadBlob(hmBuildXlsx(), hmFileBase() + ".xlsx"); }
+  catch (err) { console.error(err); showMsg("hmMsg", "error", "Could not create the Excel file: " + err.message); }
+}
+
+/* ---- PDF (jsPDF + AutoTable, loaded on demand) ---- */
+const hmLibCache = {};
+function hmLoadScript(src) {
+  if (!hmLibCache[src]) hmLibCache[src] = new Promise((res, rej) => {
+    const el = document.createElement("script");
+    el.src = src; el.onload = res; el.onerror = () => { delete hmLibCache[src]; rej(new Error("Could not load " + src)); };
+    document.head.appendChild(el);
+  });
+  return hmLibCache[src];
+}
+
+async function hmExportPdf() {
+  if (!hmView || !hmView.rows) { showMsg("hmMsg", "error", "Load the heat map first, then export."); return; }
+  const btn = document.getElementById("hmPdfBtn"), label = btn.innerHTML;
+  btn.disabled = true; btn.textContent = "Preparing PDF...";
+  try {
+    if (!(window.jspdf && window.jspdf.jsPDF)) await hmLoadScript("https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js");
+    if (!(window.jspdf && window.jspdf.jsPDF && window.jspdf.jsPDF.API.autoTable)) await hmLoadScript("https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js");
+    const v = hmView, nD = v.days.length;
+    const doc = new window.jspdf.jsPDF({ orientation: "landscape", unit: "pt", format: nD > 31 ? "a3" : "a4" });
+    const pageW = doc.internal.pageSize.getWidth(), pageH = doc.internal.pageSize.getHeight();
+
+    doc.setFont("helvetica", "bold"); doc.setFontSize(16); doc.setTextColor(122, 30, 140);
+    doc.text("Vehicle vs Date Diesel Consumption Heat Map", 30, 34);
+    doc.setFont("helvetica", "normal"); doc.setFontSize(9); doc.setTextColor(80, 80, 80);
+    doc.text("Period: " + hmPeriodText() + "     Generated: " + new Date().toLocaleString(), 30, 50);
+    let y = 66;
+    hmSummaryLines().forEach((l, i) => {
+      const col = i % 3, row = Math.floor(i / 3);
+      doc.setFont("helvetica", "bold");
+      const lw = doc.getTextWidth(l[0] + ": ");
+      doc.text(l[0] + ":", 30 + col * 300, y + row * 13);
+      doc.setFont("helvetica", "normal"); doc.text(String(l[1]), 30 + col * 300 + lw + 2, y + row * 13);
+    });
+    y += 13 * 2 + 8;
+    if (v.search) { doc.setTextColor(150, 80, 0); doc.text('Table filtered by search "' + v.search + '"; table totals cover the vehicles shown.', 30, y); y += 12; doc.setTextColor(80, 80, 80); }
+    // legend
+    doc.text("Color scale (LTR):  0", 30, y + 8);
+    const lx = 30 + doc.getTextWidth("Color scale (LTR):  0") + 6;
+    for (let i = 0; i < 40; i++) { const c = hmRgbFor((i + 1) / 40, 1); doc.setFillColor(c[0], c[1], c[2]); doc.rect(lx + i * 4, y, 4, 10, "F"); }
+    doc.text(hmFmt(v.max) + "  (white = zero, green = low, red = very high)", lx + 166, y + 8);
+    y += 18;
+
+    const head = [["Vehicle"].concat(v.days.map(k => hmLabel(k).replace(" ", "\n")), ["Total", "Avg/Day"])];
+    const body = v.rows.map(r => [r.name].concat(v.days.map(k => { const x = r.daily[k] || 0; return x > 0 ? hmFmt(x) : "-"; }), [hmFmt(r.total), hmFmt(r.avg)]));
+    const foot = [["Total Daily (LTR)"].concat(v.days.map(k => hmFmt(v.colTotals[k] || 0)), [hmFmt(v.grand), hmFmt(v.grand / nD)])];
+    // Fit every date column on the page width: size columns and font from the range length
+    const usable = pageW - 60, nameW = 110, totW = 46, avgW = 42;
+    const dateW = (usable - nameW - totW - avgW) / nD;
+    let maxLen = 3;
+    body.forEach(r => r.slice(1, 1 + nD).forEach(t => { if (t.length > maxLen) maxLen = t.length; }));
+    foot[0].slice(1, 1 + nD).forEach(t => { if (t.length > maxLen) maxLen = t.length; });
+    const fs = Math.max(4.5, Math.min(9, (dateW - 2) / (0.6 * maxLen)));
+    const colStyles = { 0: { halign: "left", cellWidth: nameW, fontStyle: "bold" } };
+    for (let i = 1; i <= nD; i++) colStyles[i] = { cellWidth: dateW };
+    colStyles[nD + 1] = { cellWidth: totW }; colStyles[nD + 2] = { cellWidth: avgW };
+
+    doc.autoTable({
+      head, body, foot: v.rows.length ? foot : undefined, startY: y, showFoot: "lastPage",
+      theme: "grid", margin: { left: 30, right: 30, bottom: 34 },
+      tableWidth: usable, styles: { fontSize: fs, cellPadding: 1.2, halign: "center", valign: "middle", lineColor: [220, 223, 239], lineWidth: 0.4, textColor: [34, 34, 34], overflow: "linebreak" },
+      headStyles: { fillColor: [52, 87, 201], textColor: 255, fontStyle: "bold" },
+      footStyles: { fillColor: [238, 241, 251], textColor: [122, 30, 140], fontStyle: "bold" },
+      columnStyles: colStyles,
+      didParseCell: d => {
+        if (d.section === "body" && d.column.index >= 1 && d.column.index <= nD) {
+          const val = v.rows[d.row.index].daily[v.days[d.column.index - 1]] || 0;
+          const c = hmRgbFor(val, v.max); d.cell.styles.fillColor = c;
+        } else if (d.section === "body" && d.column.index > nD) {
+          d.cell.styles.fillColor = [238, 241, 251]; d.cell.styles.fontStyle = "bold"; d.cell.styles.textColor = [122, 30, 140];
+        }
+      },
+      didDrawPage: () => {
+        doc.setFontSize(8); doc.setTextColor(120, 120, 120);
+        doc.text("Page " + doc.internal.getNumberOfPages(), pageW - 30, pageH - 16, { align: "right" });
+        doc.text("Diesel Tracker Admin", 30, pageH - 16);
+      }
+    });
+    doc.save(hmFileBase() + ".pdf");
+  } catch (err) {
+    console.error(err);
+    showMsg("hmMsg", "error", "Could not create the PDF: " + (err.message || "check your internet connection and try again."));
+  }
+  btn.disabled = false; btn.innerHTML = label;
 }
 
 /* ============ COMPREHENSIVE DIESEL DATA TABLE ============ */
